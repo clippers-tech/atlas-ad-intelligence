@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import type { Rule, RuleCondition } from "@/lib/types";
 import { RULE_TYPES, ACTION_TYPES } from "@/lib/constants";
 import RuleConditionBuilder from "./RuleConditionBuilder";
