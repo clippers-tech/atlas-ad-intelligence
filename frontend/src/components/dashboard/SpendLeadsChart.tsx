@@ -61,7 +61,6 @@ export function SpendLeadsChart({
         showGridLines={false}
         showAnimation
         curveType="monotone"
-        customTooltipProps={{}}
       />
     </div>
   );
