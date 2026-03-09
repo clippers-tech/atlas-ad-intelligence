@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40" fill="none">
+  <path d="M8 32L20 8L32 32H26L20 18L14 32H8Z" fill="currentColor"/>
+  <circle cx="20" cy="14" r="2.5" fill="currentColor" opacity="0.5"/>
+  <text x="42" y="28" font-family="Inter, -apple-system, sans-serif" font-size="22" font-weight="700" fill="currentColor">ATLAS</text>
+</svg>

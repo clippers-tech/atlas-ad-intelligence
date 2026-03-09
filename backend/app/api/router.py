@@ -1,0 +1,43 @@
+"""Master router — includes all ATLAS API sub-routers."""
+
+from fastapi import APIRouter
+
+from app.api.health_api import router as health_router
+from app.api.accounts_api import router as accounts_router
+from app.api.leads_api import router as leads_router
+from app.api.deals_api import router as deals_router
+from app.api.rules_api import router as rules_router
+from app.api.claude_api import router as claude_router
+from app.api.competitors_api import router as competitors_router
+from app.api.reports_api import router as reports_router
+from app.api.tracking_api import router as tracking_router
+from app.api.dashboard.overview import router as dashboard_overview_router
+from app.api.dashboard.action_log_view import router as dashboard_actions_router
+from app.api.dashboard.creative_leaderboard import router as dashboard_creatives_router
+from app.api.dashboard.audience_heatmap import router as dashboard_audiences_router
+from app.api.dashboard.funnel import router as dashboard_funnel_router
+from app.api.dashboard.anomaly_timeline import router as dashboard_anomalies_router
+from app.api.webhooks.calendly_webhook import router as calendly_router
+from app.api.webhooks.stripe_webhook import router as stripe_router
+from app.api.webhooks.landing_page_webhook import router as landing_page_router
+
+master_router = APIRouter()
+
+master_router.include_router(health_router, tags=["Health"])
+master_router.include_router(accounts_router, prefix="/accounts", tags=["Accounts"])
+master_router.include_router(leads_router, prefix="/leads", tags=["Leads"])
+master_router.include_router(deals_router, prefix="/deals", tags=["Deals"])
+master_router.include_router(rules_router, prefix="/rules", tags=["Rules"])
+master_router.include_router(claude_router, tags=["Insights"])
+master_router.include_router(competitors_router, prefix="/competitors", tags=["Competitors"])
+master_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
+master_router.include_router(tracking_router, prefix="/tracking", tags=["Tracking"])
+master_router.include_router(dashboard_overview_router, prefix="/dashboard", tags=["Dashboard"])
+master_router.include_router(dashboard_actions_router, prefix="/dashboard", tags=["Dashboard"])
+master_router.include_router(dashboard_creatives_router, prefix="/dashboard", tags=["Dashboard"])
+master_router.include_router(dashboard_audiences_router, prefix="/dashboard", tags=["Dashboard"])
+master_router.include_router(dashboard_funnel_router, prefix="/dashboard", tags=["Dashboard"])
+master_router.include_router(dashboard_anomalies_router, prefix="/dashboard", tags=["Dashboard"])
+master_router.include_router(calendly_router, prefix="/webhooks", tags=["Webhooks"])
+master_router.include_router(stripe_router, prefix="/webhooks", tags=["Webhooks"])
+master_router.include_router(landing_page_router, prefix="/webhooks", tags=["Webhooks"])
