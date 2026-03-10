@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 _CAMPAIGN_FIELDS = "id,name,objective,status,daily_budget,lifetime_budget"
 _ADSET_FIELDS = "id,name,status,daily_budget,targeting,audience_type"
-_AD_FIELDS = "id,name,status,creative{image_url,video_url,thumbnail_url},review_feedback"
+_AD_FIELDS = "id,name,status,creative{id,thumbnail_url}"
 
 
 async def _upsert_campaign(
@@ -76,10 +76,7 @@ async def _upsert_ad(
     ad.name = raw.get("name", "")
     ad.status = raw.get("status", "UNKNOWN")
     creative = raw.get("creative") or {}
-    ad.creative_url = creative.get("image_url") or creative.get("video_url")
     ad.thumbnail_url = creative.get("thumbnail_url")
-    review = raw.get("review_feedback") or {}
-    ad.review_status = review.get("global") or "approved"
     return ad
 
 
@@ -101,22 +98,28 @@ async def sync_campaigns(
             await db.flush()
             campaign_count += 1
 
-            async for adset_page in meta_client.paginate(
-                f"/{raw_campaign['id']}/adsets",
-                params={"fields": _ADSET_FIELDS, "limit": 100},
-            ):
-                for raw_adset in adset_page.get("data", []):
-                    adset = await _upsert_adset(db, account_id, campaign, raw_adset)
-                    await db.flush()
-                    adset_count += 1
+            try:
+                async for adset_page in meta_client.paginate(
+                    f"/{raw_campaign['id']}/adsets",
+                    params={"fields": _ADSET_FIELDS, "limit": 100},
+                ):
+                    for raw_adset in adset_page.get("data", []):
+                        adset = await _upsert_adset(db, account_id, campaign, raw_adset)
+                        await db.flush()
+                        adset_count += 1
 
-                    async for ad_page in meta_client.paginate(
-                        f"/{raw_adset['id']}/ads",
-                        params={"fields": _AD_FIELDS, "limit": 100},
-                    ):
-                        for raw_ad in ad_page.get("data", []):
-                            await _upsert_ad(db, account_id, adset, raw_ad)
-                            ad_count += 1
+                        try:
+                            async for ad_page in meta_client.paginate(
+                                f"/{raw_adset['id']}/ads",
+                                params={"fields": _AD_FIELDS, "limit": 100},
+                            ):
+                                for raw_ad in ad_page.get("data", []):
+                                    await _upsert_ad(db, account_id, adset, raw_ad)
+                                    ad_count += 1
+                        except Exception as exc:
+                            logger.warning("campaigns_sync: ads fetch failed for adset %s — %s", raw_adset['id'], exc)
+            except Exception as exc:
+                logger.warning("campaigns_sync: adsets fetch failed for campaign %s — %s", raw_campaign['id'], exc)
 
     await db.commit()
     logger.info(

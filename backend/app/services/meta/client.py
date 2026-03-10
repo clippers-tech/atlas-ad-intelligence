@@ -52,8 +52,6 @@ class MetaAPIClient:
         async def _do_get() -> dict[str, Any]:
             client = await self._get_client()
             logger.debug("meta_client: GET %s params=%s", endpoint, list(merged.keys()))
-            resp = client.get(endpoint, params=merged)
-            # httpx uses sync send; use await via context
             response = await client.get(endpoint, params=merged)
             response.raise_for_status()
             await meta_rate_limiter.check_response_headers(dict(response.headers))
