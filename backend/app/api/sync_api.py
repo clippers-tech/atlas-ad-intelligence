@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.account import Account
 from app.services.meta.campaigns_sync import sync_campaigns
 from app.services.meta.metrics_sync import sync_metrics
+from app.utils.circuit_breaker import meta_circuit, CircuitState
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -22,6 +23,12 @@ async def trigger_sync(
     db: AsyncSession = Depends(get_db),
 ):
     """Pull campaigns + metrics from Meta for one or all accounts."""
+    # Reset circuit breaker if it was tripped from previous errors
+    if meta_circuit.state == CircuitState.OPEN:
+        logger.info("sync_trigger: resetting circuit breaker")
+        meta_circuit._state = CircuitState.CLOSED
+        meta_circuit._failure_count = 0
+        meta_circuit._opened_at = None
     if account_id:
         accounts_q = await db.execute(
             select(Account).where(Account.id == account_id, Account.is_active.is_(True))
