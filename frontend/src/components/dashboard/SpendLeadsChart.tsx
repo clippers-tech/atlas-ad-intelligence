@@ -52,10 +52,7 @@ export function SpendLeadsChart({
         index="date"
         categories={["Spend", "Leads"]}
         colors={["blue", "emerald"]}
-        valueFormatter={(val: number, category?: string) => {
-          if (category === "Spend") return formatSpend(val);
-          return String(val);
-        }}
+        valueFormatter={formatSpend}
         className="h-56 mt-2"
         showLegend={false}
         showGridLines={false}
