@@ -47,5 +47,6 @@ class AccountResponse(BaseModel):
     timezone: str
     currency: str
     telegram_chat_id: Optional[str] = None
+    is_active: bool = True
     created_at: datetime
     updated_at: datetime
