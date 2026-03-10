@@ -76,6 +76,15 @@ export function InsightsIcon() {
   );
 }
 
+export function ComputerIcon() {
+  return (
+    <svg {...iconProps} viewBox="0 0 24 24">
+      <rect x="2" y="3" width="20" height="14" rx="2" />
+      <path d="M8 21h8M12 17v4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function SettingsIcon() {
   return (
     <svg {...iconProps} viewBox="0 0 24 24">
@@ -94,5 +103,6 @@ export const NAV_ICON_MAP: Record<string, () => JSX.Element> = {
   rules: RulesIcon,
   competitors: CompetitorsIcon,
   insights: InsightsIcon,
+  computer: ComputerIcon,
   settings: SettingsIcon,
 };

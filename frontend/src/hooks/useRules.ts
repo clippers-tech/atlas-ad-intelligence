@@ -3,12 +3,20 @@ import { fetchData, postData, patchData, deleteData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
 import type { Rule } from "@/lib/types";
 
+interface RulesResponse {
+  data: Rule[];
+  meta?: { total: number; page: number; per_page: number };
+}
+
 export function useRules() {
   const { currentAccount } = useAccountContext();
 
   return useQuery({
     queryKey: ["rules", currentAccount?.id],
-    queryFn: () => fetchData<Rule[]>("/rules"),
+    queryFn: async () => {
+      const res = await fetchData<RulesResponse>("/rules");
+      return res.data;
+    },
     enabled: !!currentAccount,
     staleTime: 60_000,
   });

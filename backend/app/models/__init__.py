@@ -21,3 +21,4 @@ from app.models.seasonality_config import SeasonalityConfig  # noqa: F401
 from app.models.audience_test_queue import AudienceTestQueue  # noqa: F401
 from app.models.landing_page_event import LandingPageEvent  # noqa: F401
 from app.models.health_check_log import HealthCheckLog  # noqa: F401
+from app.models.schedule_log import ScheduleLog  # noqa: F401

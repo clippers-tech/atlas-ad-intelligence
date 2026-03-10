@@ -17,6 +17,7 @@ from app.api.dashboard.audience_heatmap import router as dashboard_audiences_rou
 from app.api.dashboard.funnel import router as dashboard_funnel_router
 from app.api.dashboard.anomaly_timeline import router as dashboard_anomalies_router
 from app.api.webhooks.landing_page_webhook import router as landing_page_router
+from app.api.schedules_api import router as schedules_router
 
 master_router = APIRouter()
 
@@ -35,3 +36,4 @@ master_router.include_router(dashboard_audiences_router, prefix="/dashboard", ta
 master_router.include_router(dashboard_funnel_router, prefix="/dashboard", tags=["Dashboard"])
 master_router.include_router(dashboard_anomalies_router, prefix="/dashboard", tags=["Dashboard"])
 master_router.include_router(landing_page_router, prefix="/webhooks", tags=["Webhooks"])
+master_router.include_router(schedules_router, prefix="/schedules", tags=["Schedules"])

@@ -3,12 +3,20 @@ import { fetchData, postData, deleteData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
 import type { Competitor, CompetitorAd } from "@/lib/types";
 
+interface CompetitorsResponse {
+  data: Competitor[];
+  meta?: { total: number; page: number; per_page: number };
+}
+
 export function useCompetitors() {
   const { currentAccount } = useAccountContext();
 
   return useQuery({
     queryKey: ["competitors", currentAccount?.id],
-    queryFn: () => fetchData<Competitor[]>("/competitors"),
+    queryFn: async () => {
+      const res = await fetchData<CompetitorsResponse>("/competitors");
+      return res.data;
+    },
     enabled: !!currentAccount,
     staleTime: 120_000,
   });
@@ -17,7 +25,10 @@ export function useCompetitors() {
 export function useCompetitorAds(id: string | null) {
   return useQuery({
     queryKey: ["competitor-ads", id],
-    queryFn: () => fetchData<CompetitorAd[]>(`/competitors/${id}/ads`),
+    queryFn: async () => {
+      const res = await fetchData<{ data: CompetitorAd[] }>(`/competitors/${id}/ads`);
+      return res.data;
+    },
     enabled: !!id,
     staleTime: 120_000,
   });

@@ -2,8 +2,8 @@
 
 import { useDashboardOverview } from "@/hooks/useDashboardOverview";
 import { MetricCardRow } from "@/components/dashboard/MetricCardRow";
-import { SpendLeadsChart } from "@/components/dashboard/SpendLeadsChart";
 import { CampaignTable } from "@/components/dashboard/CampaignTable";
+import { ActivityWidget } from "@/components/schedules/ActivityWidget";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/LoadingSpinner";
@@ -34,8 +34,6 @@ export default function DashboardPage() {
   if (isLoading && !data) return <PageLoader />;
 
   const campaigns = data?.campaigns ?? [];
-  const spendSeries = data?.spend_series ?? [];
-  const leadsSeries = data?.leads_series ?? [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -44,17 +42,15 @@ export default function DashboardPage() {
         subtitle={`${currentAccount.name} · Real-time performance`}
       />
       <MetricCardRow data={data} isLoading={isLoading} />
-      {spendSeries.length > 0 && (
-        <SpendLeadsChart spendSeries={spendSeries} leadsSeries={leadsSeries} />
-      )}
       {campaigns.length === 0 && !isLoading ? (
         <EmptyState
-          title="No campaigns"
-          description="No campaign data found for the current date range."
+          title="No campaigns yet"
+          description="Connect your Meta token to start pulling campaign data. Perplexity Computer will handle the rest."
         />
       ) : (
         <CampaignTable campaigns={campaigns} targetCpl={currentAccount.target_cpl} />
       )}
+      <ActivityWidget />
     </div>
   );
 }

@@ -24,12 +24,12 @@ export function MetricCardRow({ data, isLoading }: MetricCardRowProps) {
   if (!data) return null;
 
   const cards = [
-    { title: "Total Spend", value: formatCurrency(data.total_spend), change: data.spend_vs_yesterday, subtitle: "vs prev" },
-    { title: "Leads", value: formatNumber(data.total_leads), change: data.leads_vs_yesterday, subtitle: "vs prev" },
-    { title: "Avg CPL", value: formatCurrencyDecimal(data.avg_cpl), change: undefined, inverse: true },
-    { title: "Bookings", value: formatNumber(data.total_bookings) },
-    { title: "ROAS", value: formatRoas(data.true_roas) },
-    { title: "Active Ads", value: formatNumber(data.active_ads) },
+    { title: "Total Spend", value: formatCurrency(data.total_spend ?? 0) },
+    { title: "Leads", value: formatNumber(data.total_leads ?? 0) },
+    { title: "Avg CPL", value: formatCurrencyDecimal(data.avg_cpl ?? 0), inverse: true },
+    { title: "Bookings", value: formatNumber(data.total_bookings ?? 0) },
+    { title: "ROAS", value: formatRoas(data.true_roas ?? 0) },
+    { title: "Active Ads", value: formatNumber(data.active_ads_count ?? 0) },
   ];
 
   return (

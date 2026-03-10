@@ -15,9 +15,6 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://atlas:password@postgres:5432/atlas"
 
-    # Redis
-    redis_url: str = "redis://redis:6379/0"
-
     # Meta Marketing API
     meta_app_id: str = ""
     meta_app_secret: str = ""

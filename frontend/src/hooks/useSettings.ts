@@ -49,8 +49,12 @@ export function useUpdateAccount() {
 export function useSeasonality(accountId: string | null) {
   return useQuery({
     queryKey: ["seasonality", accountId],
-    queryFn: () =>
-      fetchData<SeasonalityConfig[]>(`/accounts/${accountId}/seasonality`),
+    queryFn: async () => {
+      const res = await fetchData<{ data: SeasonalityConfig[] }>(
+        `/accounts/${accountId}/seasonality`
+      );
+      return res.data;
+    },
     enabled: !!accountId,
     staleTime: 120_000,
   });

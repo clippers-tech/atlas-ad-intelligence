@@ -28,7 +28,7 @@ export function CampaignTable({ campaigns, targetCpl }: CampaignTableProps) {
             {campaigns.map((c) => {
               const cplOver = targetCpl && c.cpl > targetCpl;
               return (
-                <tr key={c.id} className="border-b border-[var(--border)]/50 hover:bg-[var(--surface-2)] transition-colors">
+                <tr key={c.campaign_id ?? c.id} className="border-b border-[var(--border)]/50 hover:bg-[var(--surface-2)] transition-colors">
                   <td className="px-4 py-3 pl-5">
                     <span className="text-[13px] font-medium text-[var(--text)]">{c.name}</span>
                   </td>

@@ -75,26 +75,22 @@ export interface DashboardOverview {
   total_leads: number;
   avg_cpl: number;
   total_bookings: number;
+  total_revenue: number;
   true_roas: number;
-  active_ads: number;
-  paused_today: number;
-  spend_vs_yesterday: number;
-  leads_vs_yesterday: number;
+  active_ads_count: number;
+  paused_today_count: number;
   campaigns: CampaignRow[];
-  spend_series: TimeSeriesPoint[];
-  leads_series: TimeSeriesPoint[];
 }
 
 export interface CampaignRow {
-  id: string;
+  campaign_id: string;
+  id?: string;
   name: string;
   status: string;
   spend: number;
   leads: number;
   cpl: number;
   bookings: number;
-  calls: number;
-  closes: number;
   revenue: number;
   roas: number;
 }

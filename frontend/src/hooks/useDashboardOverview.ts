@@ -3,16 +3,22 @@ import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
 import type { DashboardOverview } from "@/lib/types";
 
+interface DashboardResponse {
+  data: DashboardOverview;
+}
+
 export function useDashboardOverview(dateFrom?: string, dateTo?: string) {
   const { currentAccount } = useAccountContext();
 
   return useQuery({
     queryKey: ["dashboard", "overview", currentAccount?.id, dateFrom, dateTo],
-    queryFn: () =>
-      fetchData<DashboardOverview>("/dashboard/overview", {
+    queryFn: async () => {
+      const res = await fetchData<DashboardResponse>("/dashboard/overview", {
         date_from: dateFrom,
         date_to: dateTo,
-      }),
+      });
+      return res.data;
+    },
     enabled: !!currentAccount,
     staleTime: 60_000,
   });
