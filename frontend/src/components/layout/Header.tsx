@@ -33,7 +33,7 @@ export default function Header() {
         : "Critical";
 
   return (
-    <header className="h-[var(--header-height)] bg-[var(--surface)] border-b border-[var(--border)] flex items-center justify-between px-5 fixed top-0 left-[var(--sidebar-width)] right-0 z-20">
+    <header className="h-[var(--header-height)] bg-[var(--surface)] border-b border-[var(--border)] flex items-center justify-between px-5">
       {/* Left — status */}
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-2 px-2.5 py-1 rounded-md bg-[var(--surface-2)]">

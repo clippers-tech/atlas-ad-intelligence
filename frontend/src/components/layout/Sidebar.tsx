@@ -10,7 +10,7 @@ export default function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-[var(--sidebar-width)] h-screen bg-[var(--surface)] border-r border-[var(--border)] flex flex-col fixed left-0 top-0 z-30">
+    <aside className="w-[var(--sidebar-width)] h-screen bg-[var(--surface)] border-r border-[var(--border)] flex flex-col">
       {/* Brand */}
       <div className="px-5 py-4 border-b border-[var(--border)]">
         <div className="flex items-center gap-2.5">
