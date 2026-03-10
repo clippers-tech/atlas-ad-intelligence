@@ -37,3 +37,4 @@ alembic/versions/*.py
 
 # Archive
 *.tar.gz
+tsconfig.tsbuildinfo
