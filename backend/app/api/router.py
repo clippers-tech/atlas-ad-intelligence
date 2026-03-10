@@ -23,6 +23,7 @@ from app.api.ads_api import router as ads_router
 from app.api.insights_api import router as insights_router
 from app.api.creatives_api import router as creatives_router
 from app.api.schedules_api import router as schedules_router
+from app.api.sync_api import router as sync_router
 
 master_router = APIRouter()
 
@@ -47,3 +48,4 @@ master_router.include_router(ads_router, prefix="/ads", tags=["Ads"])
 master_router.include_router(insights_router, prefix="/insights", tags=["Insights"])
 master_router.include_router(creatives_router, prefix="/creatives", tags=["Creatives"])
 master_router.include_router(schedules_router, prefix="/schedules", tags=["Schedules"])
+master_router.include_router(sync_router, tags=["Sync"])
