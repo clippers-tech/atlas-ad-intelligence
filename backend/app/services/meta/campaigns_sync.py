@@ -32,6 +32,7 @@ async def _upsert_campaign(
     if campaign is None:
         campaign = Campaign(account_id=account_id, meta_campaign_id=raw["id"])
         db.add(campaign)
+    campaign.account_id = account_id
     campaign.name = raw.get("name", "")
     campaign.objective = raw.get("objective")
     campaign.status = raw.get("status", "UNKNOWN")
@@ -55,6 +56,8 @@ async def _upsert_adset(
     if adset is None:
         adset = AdSet(account_id=account_id, campaign_id=campaign.id, meta_adset_id=raw["id"])
         db.add(adset)
+    adset.account_id = account_id
+    adset.campaign_id = campaign.id
     adset.name = raw.get("name", "")
     adset.status = raw.get("status", "UNKNOWN")
     daily = raw.get("daily_budget")
@@ -73,6 +76,8 @@ async def _upsert_ad(
     if ad is None:
         ad = Ad(account_id=account_id, ad_set_id=adset.id, meta_ad_id=raw["id"])
         db.add(ad)
+    ad.account_id = account_id
+    ad.ad_set_id = adset.id
     ad.name = raw.get("name", "")
     ad.status = raw.get("status", "UNKNOWN")
     creative = raw.get("creative") or {}
