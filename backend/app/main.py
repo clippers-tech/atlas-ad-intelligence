@@ -23,9 +23,9 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://frontend:3000",
-        "https://*.vercel.app",
+        "https://atlas-frontend-5ta3.onrender.com",
     ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*\.onrender\.com",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
