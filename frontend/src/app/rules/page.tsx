@@ -10,6 +10,9 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { PageLoader } from "@/components/common/LoadingSpinner";
 import type { Rule } from "@/lib/types";
 import { formatNumber, formatRelative } from "@/lib/utils";
+import RuleForm from "@/components/rules/RuleForm";
+import { postData } from "@/lib/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 const typeColors: Record<string, string> = {
   kill: "danger",
@@ -19,10 +22,12 @@ const typeColors: Record<string, string> = {
 };
 
 export default function RulesPage() {
-  const { currentAccount } = useAccountContext();
+  const { currentAccount, isLoading: accountLoading } = useAccountContext();
   const { data, isLoading } = useRules();
   const [showForm, setShowForm] = useState(false);
+  const queryClient = useQueryClient();
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return <EmptyState title="No account selected" description="Select an account to manage rules." />;
   }
@@ -44,13 +49,25 @@ export default function RulesPage() {
           </button>
         }
       />
-      {rules.length === 0 ? (
+      {showForm && (
+        <Card title={"Create New Rule"} subtitle={"Define conditions and actions for automated ad management"}>
+          <RuleForm
+            onSubmit={async (data) => {
+              await postData("/rules", { ...data, account_id: currentAccount.id });
+              queryClient.invalidateQueries({ queryKey: ["rules"] });
+              setShowForm(false);
+            }}
+            onCancel={() => setShowForm(false)}
+          />
+        </Card>
+      )}
+      {rules.length === 0 && !showForm ? (
         <EmptyState
           title="No rules yet"
           description="Create automation rules to automatically manage your Meta ads based on performance metrics."
           action={{ label: "Create First Rule", onClick: () => setShowForm(true) }}
         />
-      ) : (
+      ) : rules.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {rules.map((rule) => (
             <Card key={rule.id} className="hover:border-[var(--border-light)] transition-colors">
@@ -83,7 +100,7 @@ export default function RulesPage() {
             </Card>
           ))}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

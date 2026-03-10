@@ -12,7 +12,7 @@ import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
 import type { CreativePerformance } from "@/lib/types";
 
 export default function CreativesPage() {
-  const { currentAccount } = useAccountContext();
+  const { currentAccount, isLoading: accountLoading } = useAccountContext();
 
   const { data, isLoading } = useQuery({
     queryKey: ["creatives", currentAccount?.id],
@@ -20,6 +20,7 @@ export default function CreativesPage() {
     enabled: !!currentAccount,
   });
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return <EmptyState title="No account selected" description="Select an account to view creatives." />;
   }

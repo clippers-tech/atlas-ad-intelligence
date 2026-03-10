@@ -11,7 +11,7 @@ import { PageLoader } from "@/components/common/LoadingSpinner";
 import type { Ad } from "@/lib/types";
 
 export default function AdsPage() {
-  const { currentAccount } = useAccountContext();
+  const { currentAccount, isLoading: accountLoading } = useAccountContext();
 
   const { data, isLoading } = useQuery({
     queryKey: ["ads", currentAccount?.id],
@@ -19,6 +19,7 @@ export default function AdsPage() {
     enabled: !!currentAccount,
   });
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return <EmptyState title="No account selected" description="Select an account to view ads." />;
   }

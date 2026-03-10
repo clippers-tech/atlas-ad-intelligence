@@ -5,13 +5,15 @@ import { useAccountContext } from "@/contexts/AccountContext";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/common/Card";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageLoader } from "@/components/common/LoadingSpinner";
 
 type Tab = "accounts" | "targets" | "notifications";
 
 export default function SettingsPage() {
-  const { currentAccount, accounts } = useAccountContext();
+  const { currentAccount, accounts, isLoading: accountLoading } = useAccountContext();
   const [activeTab, setActiveTab] = useState<Tab>("accounts");
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return <EmptyState title="No account selected" description="Select an account to manage settings." />;
   }

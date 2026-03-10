@@ -12,7 +12,7 @@ import { formatRelative } from "@/lib/utils";
 import type { Insight } from "@/lib/types";
 
 export default function InsightsPage() {
-  const { currentAccount } = useAccountContext();
+  const { currentAccount, isLoading: accountLoading } = useAccountContext();
 
   const { data, isLoading } = useQuery({
     queryKey: ["insights", currentAccount?.id],
@@ -20,6 +20,7 @@ export default function InsightsPage() {
     enabled: !!currentAccount,
   });
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return <EmptyState title="No account selected" description="Select an account to view insights." />;
   }

@@ -10,9 +10,10 @@ import { PageLoader } from "@/components/common/LoadingSpinner";
 import { useAccountContext } from "@/contexts/AccountContext";
 
 export default function DashboardPage() {
-  const { currentAccount } = useAccountContext();
+  const { currentAccount, isLoading: accountLoading } = useAccountContext();
   const { data, isLoading, isError } = useDashboardOverview();
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return (
       <EmptyState

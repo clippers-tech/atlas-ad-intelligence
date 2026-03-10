@@ -24,7 +24,7 @@ interface AdSet {
 }
 
 export default function AdSetsPage() {
-  const { currentAccount } = useAccountContext();
+  const { currentAccount, isLoading: accountLoading } = useAccountContext();
 
   const { data, isLoading } = useQuery({
     queryKey: ["adsets", currentAccount?.id],
@@ -32,6 +32,7 @@ export default function AdSetsPage() {
     enabled: !!currentAccount,
   });
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return <EmptyState title="No account selected" description="Select an account to view ad sets." />;
   }

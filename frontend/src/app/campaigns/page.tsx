@@ -12,7 +12,7 @@ import { formatCurrency, formatCurrencyDecimal, formatNumber, formatRoas } from 
 import type { Campaign } from "@/lib/types";
 
 export default function CampaignsPage() {
-  const { currentAccount } = useAccountContext();
+  const { currentAccount, isLoading: accountLoading } = useAccountContext();
 
   const { data, isLoading } = useQuery({
     queryKey: ["campaigns", currentAccount?.id],
@@ -20,6 +20,7 @@ export default function CampaignsPage() {
     enabled: !!currentAccount,
   });
 
+  if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
     return <EmptyState title="No account selected" description="Select an account to view campaigns." />;
   }
