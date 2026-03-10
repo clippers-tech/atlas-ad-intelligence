@@ -114,6 +114,10 @@ async def dashboard_overview(
             Lead.account_id == account_id,
             Lead.source_campaign_id == camp.id,
         )
+        if date_from:
+            c_lead_q = c_lead_q.where(Lead.created_at >= date_from)
+        if date_to:
+            c_lead_q = c_lead_q.where(Lead.created_at <= date_to)
         camp_leads = (await db.execute(c_lead_q)).scalar_one() or 0
 
         # Spend: sum ad_metrics for all ads in this campaign's ad_sets
@@ -130,6 +134,10 @@ async def dashboard_overview(
                 camp_spend_q = select(func.sum(AdMetric.spend)).where(
                     AdMetric.ad_id.in_(ad_ids)
                 )
+                if date_from:
+                    camp_spend_q = camp_spend_q.where(AdMetric.timestamp >= date_from)
+                if date_to:
+                    camp_spend_q = camp_spend_q.where(AdMetric.timestamp <= date_to)
                 camp_spend = (await db.execute(camp_spend_q)).scalar_one() or 0.0
 
         # Revenue: closed_won deals from leads in this campaign

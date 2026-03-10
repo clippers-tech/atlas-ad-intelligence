@@ -1,17 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
+import { useDateRange } from "@/contexts/DateRangeContext";
 import type { DashboardOverview } from "@/lib/types";
 
 interface DashboardResponse {
   data: DashboardOverview;
 }
 
-export function useDashboardOverview(dateFrom?: string, dateTo?: string) {
+export function useDashboardOverview() {
   const { currentAccount } = useAccountContext();
+  const { dateFrom, dateTo, rangeKey } = useDateRange();
 
   return useQuery({
-    queryKey: ["dashboard", "overview", currentAccount?.id, dateFrom, dateTo],
+    queryKey: ["dashboard", "overview", currentAccount?.id, rangeKey],
     queryFn: async () => {
       const res = await fetchData<DashboardResponse>("/dashboard/overview", {
         date_from: dateFrom,
