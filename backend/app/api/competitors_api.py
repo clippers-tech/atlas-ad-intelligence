@@ -100,11 +100,16 @@ async def list_competitor_ads(
 @router.post("", status_code=status.HTTP_201_CREATED)
 async def add_competitor(
     payload: CompetitorConfigCreate,
+    account_id: UUID = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a new competitor to watch."""
+    """Add a new competitor to watch.
+
+    account_id comes from the query string (injected by the frontend
+    interceptor), while the rest of the payload is in the JSON body.
+    """
     config = CompetitorConfig(
-        account_id=payload.account_id,
+        account_id=account_id,
         competitor_name=payload.competitor_name,
         meta_page_id=payload.meta_page_id,
         website_url=payload.website_url,

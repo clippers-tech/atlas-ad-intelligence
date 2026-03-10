@@ -1,146 +1,163 @@
-"""Sync Meta ad insights (metrics) into ad_metrics and ad_placement_metrics tables."""
+"""Sync Meta ad-level insights into ad_metrics table.
+
+Pulls daily spend/impressions/clicks/conversions for each ad,
+upserting one row per ad per day.
+"""
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ad import Ad
 from app.models.ad_metric import AdMetric
-from app.models.ad_placement_metric import AdPlacementMetric
 from app.services.meta.client import meta_client
 
 logger = logging.getLogger(__name__)
 
 _INSIGHT_FIELDS = (
-    "ad_id,spend,impressions,clicks,ctr,cpc,cpm,actions,"
-    "frequency,video_p25_watched_actions,video_p50_watched_actions,"
-    "video_p75_watched_actions,video_p100_watched_actions,reach,unique_clicks"
+    "ad_id,date_start,spend,impressions,clicks,ctr,cpc,cpm,"
+    "reach,frequency,actions,cost_per_action_type"
 )
 
 
-def _parse_float(value: Any, default: float = 0.0) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _parse_int(value: Any, default: int = 0) -> int:
-    try:
-        return int(float(value))
-    except (TypeError, ValueError):
-        return default
-
-
-def _extract_action_value(actions: list[dict], action_type: str) -> int:
-    for action in (actions or []):
-        if action.get("action_type") == action_type:
-            return _parse_int(action.get("value", 0))
+def _parse_actions(actions: list[dict] | None, key: str) -> int:
+    """Extract a specific action count from Meta actions array."""
+    if not actions:
+        return 0
+    for a in actions:
+        if a.get("action_type") == key:
+            return int(a.get("value", 0))
     return 0
 
 
-def _extract_video_pct(video_actions: list[dict] | None, pct: str) -> float:
-    for entry in (video_actions or []):
-        if entry.get("action_type") == f"video_view_p{pct}":
-            return _parse_float(entry.get("value", 0.0))
+def _parse_cost_per_action(
+    cost_actions: list[dict] | None, key: str
+) -> float:
+    if not cost_actions:
+        return 0.0
+    for a in cost_actions:
+        if a.get("action_type") == key:
+            return float(a.get("value", 0))
     return 0.0
 
 
-async def _get_or_none_ad_id(db: AsyncSession, meta_ad_id: str) -> uuid.UUID | None:
-    result = await db.execute(select(Ad.id).where(Ad.meta_ad_id == meta_ad_id).limit(1))
-    return result.scalar_one_or_none()
-
-
-async def _store_ad_metric(
+async def _upsert_metric(
     db: AsyncSession,
-    account_id: uuid.UUID,
-    ad_id: uuid.UUID,
+    ad: Ad,
     row: dict[str, Any],
-    ts: datetime,
 ) -> None:
-    actions = row.get("actions") or []
-    metric = AdMetric(
-        ad_id=ad_id,
-        account_id=account_id,
-        timestamp=ts,
-        spend=_parse_float(row.get("spend")),
-        impressions=_parse_int(row.get("impressions")),
-        clicks=_parse_int(row.get("clicks")),
-        ctr=_parse_float(row.get("ctr")),
-        cpc=_parse_float(row.get("cpc")),
-        cpm=_parse_float(row.get("cpm")),
-        conversions=_extract_action_value(actions, "lead"),
-        frequency=_parse_float(row.get("frequency")),
-        video_p25=_extract_video_pct(row.get("video_p25_watched_actions"), "25"),
-        video_p50=_extract_video_pct(row.get("video_p50_watched_actions"), "50"),
-        video_p75=_extract_video_pct(row.get("video_p75_watched_actions"), "75"),
-        video_p100=_extract_video_pct(row.get("video_p100_watched_actions"), "100"),
-        reach=_parse_int(row.get("reach")),
-        unique_clicks=_parse_int(row.get("unique_clicks")),
+    """Upsert one day of metrics for an ad."""
+    date_str = row.get("date_start", "")
+    if not date_str:
+        return
+
+    from datetime import datetime, timezone
+
+    ts = datetime.strptime(date_str, "%Y-%m-%d").replace(
+        tzinfo=timezone.utc
     )
-    db.add(metric)
 
-
-async def _store_placement_metrics(
-    db: AsyncSession,
-    account_id: uuid.UUID,
-    ad_id: uuid.UUID,
-    placement_rows: list[dict[str, Any]],
-    ts: datetime,
-) -> None:
-    for row in placement_rows:
-        placement = row.get("publisher_platform", "other")
-        pm = AdPlacementMetric(
-            ad_id=ad_id,
-            account_id=account_id,
-            timestamp=ts,
-            placement=placement,
-            spend=_parse_float(row.get("spend")),
-            impressions=_parse_int(row.get("impressions")),
-            clicks=_parse_int(row.get("clicks")),
-            ctr=_parse_float(row.get("ctr")),
-            conversions=_extract_action_value(row.get("actions") or [], "lead"),
+    # Check if row already exists
+    existing = await db.execute(
+        select(AdMetric).where(
+            and_(
+                AdMetric.ad_id == ad.id,
+                AdMetric.timestamp == ts,
+            )
         )
-        db.add(pm)
+    )
+    metric = existing.scalar_one_or_none()
+    if metric is None:
+        metric = AdMetric(
+            ad_id=ad.id,
+            account_id=ad.account_id,
+            timestamp=ts,
+        )
+        db.add(metric)
+
+    metric.account_id = ad.account_id
+    metric.spend = float(row.get("spend", 0))
+    metric.impressions = int(row.get("impressions", 0))
+    metric.clicks = int(row.get("clicks", 0))
+    metric.ctr = float(row.get("ctr", 0))
+    metric.cpc = float(row.get("cpc", 0))
+    metric.cpm = float(row.get("cpm", 0))
+    metric.reach = int(row.get("reach", 0))
+    metric.frequency = float(row.get("frequency", 0))
+
+    actions = row.get("actions")
+    cost_per = row.get("cost_per_action_type")
+    metric.conversions = _parse_actions(actions, "lead")
+    metric.cpl = _parse_cost_per_action(cost_per, "lead")
+    metric.cpa = _parse_cost_per_action(
+        cost_per, "offsite_conversion.fb_pixel_purchase"
+    )
 
 
 async def sync_metrics(
     db: AsyncSession,
     account_id: uuid.UUID,
     meta_ad_account_id: str,
-) -> None:
-    """Fetch insights and store ad-level + placement-level metrics."""
-    ts = datetime.now(tz=timezone.utc)
-    logger.info("metrics_sync: starting for account %s (%s)", account_id, meta_ad_account_id)
-    count = 0
+    days_back: int = 30,
+) -> int:
+    """Pull ad-level daily insights and upsert into ad_metrics."""
+    logger.info(
+        "metrics_sync: starting for %s (last %d days)",
+        meta_ad_account_id, days_back,
+    )
 
-    async for page in meta_client.paginate(
-        f"/{meta_ad_account_id}/insights",
-        params={
-            "level": "ad",
-            "fields": _INSIGHT_FIELDS,
-            "breakdowns": "publisher_platform",
-            "limit": 100,
-        },
-    ):
-        rows_by_ad: dict[str, list[dict]] = {}
-        for row in page.get("data", []):
-            meta_ad_id = row.get("ad_id", "")
-            rows_by_ad.setdefault(meta_ad_id, []).append(row)
+    since = (date.today() - timedelta(days=days_back)).isoformat()
+    until = date.today().isoformat()
+    metric_count = 0
 
-        for meta_ad_id, rows in rows_by_ad.items():
-            ad_id = await _get_or_none_ad_id(db, meta_ad_id)
-            if ad_id is None:
-                logger.debug("metrics_sync: no local ad for meta_ad_id %s, skipping", meta_ad_id)
-                continue
-            # Store aggregate (first row has aggregate, rest are placement breakdowns)
-            await _store_ad_metric(db, account_id, ad_id, rows[0], ts)
-            await _store_placement_metrics(db, account_id, ad_id, rows, ts)
-            count += 1
+    # Build ad lookup: meta_ad_id → Ad
+    ads_result = await db.execute(
+        select(Ad).where(Ad.account_id == account_id)
+    )
+    ad_map: dict[str, Ad] = {}
+    for ad in ads_result.scalars().all():
+        if ad.meta_ad_id:
+            ad_map[ad.meta_ad_id] = ad
+
+    if not ad_map:
+        logger.info("metrics_sync: no ads found, skipping")
+        return 0
+
+    # Fetch account-level insights broken down by ad per day
+    try:
+        async for page in meta_client.paginate(
+            f"/{meta_ad_account_id}/insights",
+            params={
+                "fields": _INSIGHT_FIELDS,
+                "level": "ad",
+                "time_range": f'{{"since":"{since}","until":"{until}"}}',
+                "time_increment": 1,
+                "limit": 500,
+            },
+        ):
+            for row in page.get("data", []):
+                meta_ad_id = row.get("ad_id")
+                ad = ad_map.get(meta_ad_id)
+                if ad:
+                    await _upsert_metric(db, ad, row)
+                    metric_count += 1
+
+            # Flush every page
+            await db.flush()
+
+    except Exception as exc:
+        logger.error(
+            "metrics_sync: failed for %s — %s",
+            meta_ad_account_id, exc,
+        )
 
     await db.commit()
-    logger.info("metrics_sync: stored metrics for %d ads, account %s", count, account_id)
+    logger.info(
+        "metrics_sync: done — %d metric rows for %s",
+        metric_count, meta_ad_account_id,
+    )
+    return metric_count

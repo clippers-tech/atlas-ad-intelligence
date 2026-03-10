@@ -3,12 +3,12 @@
 import { useQuery } from "@tanstack/react-query";
 import AccountSwitcher from "./AccountSwitcher";
 import { fetchData } from "@/lib/api";
-import { useDateRange } from "@/contexts/DateRangeContext";
 import type { HealthStatus } from "@/lib/types";
 import { DATE_RANGES } from "@/lib/constants";
+import { useDateRange } from "@/contexts/DateRangeContext";
 
 export default function Header() {
-  const { rangeKey, setRangeKey } = useDateRange();
+  const { rangeKey: range, setRangeKey: setRange } = useDateRange();
 
   const { data: health } = useQuery({
     queryKey: ["health"],
@@ -51,9 +51,9 @@ export default function Header() {
           {DATE_RANGES.map((r) => (
             <button
               key={r.value}
-              onClick={() => setRangeKey(r.value as "1d" | "7d" | "14d" | "30d" | "all")}
+              onClick={() => setRange(r.value as string)}
               className={`px-2.5 py-1 text-[12px] font-medium rounded-md transition-all duration-150 ${
-                rangeKey === r.value
+                range === r.value
                   ? "bg-amber-500/15 text-amber-400"
                   : "text-[var(--muted)] hover:text-[var(--text-secondary)]"
               }`}

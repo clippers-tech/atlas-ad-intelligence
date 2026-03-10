@@ -8,10 +8,12 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { PageHeader } from "@/components/common/PageHeader";
 import { PageLoader } from "@/components/common/LoadingSpinner";
 import { useAccountContext } from "@/contexts/AccountContext";
+import { useDateRange } from "@/contexts/DateRangeContext";
 
 export default function DashboardPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
-  const { data, isLoading, isError } = useDashboardOverview();
+  const { dateFrom, dateTo } = useDateRange();
+  const { data, isLoading, isError } = useDashboardOverview(dateFrom, dateTo);
 
   if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
