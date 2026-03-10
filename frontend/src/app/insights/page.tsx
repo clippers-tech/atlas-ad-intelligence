@@ -1,119 +1,84 @@
 "use client";
 
-import { useState } from "react";
-import { useInsights, useAskClaude } from "@/hooks/useInsights";
-import InsightHistory from "@/components/insights/InsightHistory";
-import AskClaude from "@/components/insights/AskClaude";
-import OutcomeTracker from "@/components/insights/OutcomeTracker";
-import CrossAccountTab from "@/components/insights/CrossAccountTab";
-import { LoadingSpinner } from "@/components/common/LoadingSpinner";
-
-type TabKey = "daily" | "weekly" | "ask" | "outcomes" | "cross";
-
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "daily", label: "Daily Digest", icon: "📊" },
-  { key: "weekly", label: "Weekly Strategy", icon: "🎯" },
-  { key: "ask", label: "Ask Claude", icon: "🤖" },
-  { key: "outcomes", label: "Outcomes", icon: "📈" },
-  { key: "cross", label: "Cross-Account", icon: "🌐" },
-];
+import { useQuery } from "@tanstack/react-query";
+import { fetchData } from "@/lib/api";
+import { useAccountContext } from "@/contexts/AccountContext";
+import { PageHeader } from "@/components/common/PageHeader";
+import { Card } from "@/components/common/Card";
+import { EmptyState } from "@/components/common/EmptyState";
+import { PageLoader } from "@/components/common/LoadingSpinner";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { formatRelative } from "@/lib/utils";
+import type { ClaudeInsight } from "@/lib/types";
 
 export default function InsightsPage() {
-  const [activeTab, setActiveTab] = useState<TabKey>("daily");
+  const { currentAccount } = useAccountContext();
 
-  const { data: allInsights = [], isLoading } = useInsights();
-  const askClaude = useAskClaude();
+  const { data, isLoading } = useQuery({
+    queryKey: ["insights", currentAccount?.id],
+    queryFn: () => fetchData<{ data: ClaudeInsight[] }>("/insights"),
+    enabled: !!currentAccount,
+  });
 
-  const dailyInsights = allInsights.filter((i) => i.type === "daily_digest");
-  const weeklyInsights = allInsights.filter((i) => i.type === "weekly_strategy");
-  const lastAskResponse = askClaude.data?.response_text ?? null;
-
-  // Mock outcomes data (would come from a dedicated endpoint in production)
-  const mockOutcomes: {
-    date: string;
-    recommendation: string;
-    action_taken: boolean;
-    outcome: string;
-  }[] = [];
-
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-24">
-        <LoadingSpinner />
-      </div>
-    );
+  if (!currentAccount) {
+    return <EmptyState title="No account selected" description="Select an account to view insights." />;
   }
 
+  if (isLoading) return <PageLoader />;
+  const insights = data?.data ?? [];
+
+  const priorityVariant = (p: string) => {
+    if (p === "critical") return "danger";
+    if (p === "high") return "warning";
+    if (p === "medium") return "info";
+    return "muted";
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-100">Claude Insights</h1>
-        <p className="text-sm text-gray-400 mt-0.5">
-          AI-powered analysis and strategy recommendations for your ad accounts.
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-900/50 border border-gray-800 rounded-xl p-1 overflow-x-auto">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex items-center gap-2 px-4 py-2 text-sm rounded-lg font-medium whitespace-nowrap transition-colors flex-shrink-0 ${
-              activeTab === tab.key
-                ? "bg-violet-600 text-white shadow"
-                : "text-gray-400 hover:text-gray-200 hover:bg-gray-800"
-            }`}
-          >
-            <span>{tab.icon}</span>
-            {tab.label}
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Insights"
+        subtitle="AI-generated insights from your Meta ad data"
+        actions={
+          <button className="px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-400 text-[12px] font-medium hover:bg-amber-500/25 transition-colors">
+            Generate Insights
           </button>
-        ))}
-      </div>
-
-      {/* Tab Content */}
-      <div>
-        {activeTab === "daily" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                {dailyInsights.length} daily digests
+        }
+      />
+      {insights.length === 0 ? (
+        <EmptyState
+          title="No insights yet"
+          description="Insights will be generated as your ad data accumulates. Check back after campaigns have been running."
+        />
+      ) : (
+        <div className="flex flex-col gap-3">
+          {insights.map((insight) => (
+            <Card key={insight.id} className="hover:border-[var(--border-light)] transition-colors">
+              <div className="flex items-start justify-between mb-2">
+                <StatusBadge
+                  label={insight.priority || "info"}
+                  variant={priorityVariant(insight.priority || "low") as "danger" | "warning" | "info" | "muted"}
+                />
+                <span className="text-[11px] text-[var(--muted)]">
+                  {insight.created_at ? formatRelative(insight.created_at) : ""}
+                </span>
+              </div>
+              <h4 className="text-[13px] font-semibold text-[var(--text)] mb-1">
+                {insight.title}
+              </h4>
+              <p className="text-[12px] text-[var(--text-secondary)] leading-relaxed">
+                {insight.summary}
               </p>
-            </div>
-            <InsightHistory insights={dailyInsights} />
-          </div>
-        )}
-
-        {activeTab === "weekly" && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-400">
-                {weeklyInsights.length} weekly strategy reports
-              </p>
-            </div>
-            <InsightHistory insights={weeklyInsights} />
-          </div>
-        )}
-
-        {activeTab === "ask" && (
-          <div className="max-w-2xl">
-            <AskClaude
-              onAsk={(q) => askClaude.mutate(q)}
-              isLoading={askClaude.isPending}
-              lastResponse={lastAskResponse}
-            />
-          </div>
-        )}
-
-        {activeTab === "outcomes" && (
-          <OutcomeTracker outcomes={mockOutcomes} />
-        )}
-
-        {activeTab === "cross" && (
-          <CrossAccountTab insights={allInsights} />
-        )}
-      </div>
+              {insight.recommendation && (
+                <div className="mt-3 p-3 rounded-lg bg-amber-500/8 border border-amber-500/15">
+                  <p className="text-[11px] font-medium text-amber-400 mb-0.5">Recommendation</p>
+                  <p className="text-[12px] text-[var(--text-secondary)]">{insight.recommendation}</p>
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

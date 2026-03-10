@@ -5,6 +5,8 @@ import { MetricCardRow } from "@/components/dashboard/MetricCardRow";
 import { SpendLeadsChart } from "@/components/dashboard/SpendLeadsChart";
 import { CampaignTable } from "@/components/dashboard/CampaignTable";
 import { EmptyState } from "@/components/common/EmptyState";
+import { PageHeader } from "@/components/common/PageHeader";
+import { PageLoader } from "@/components/common/LoadingSpinner";
 import { useAccountContext } from "@/contexts/AccountContext";
 
 export default function DashboardPage() {
@@ -16,7 +18,6 @@ export default function DashboardPage() {
       <EmptyState
         title="No account selected"
         description="Select an account from the header to view dashboard data."
-        icon="📊"
       />
     );
   }
@@ -25,57 +26,34 @@ export default function DashboardPage() {
     return (
       <EmptyState
         title="Failed to load dashboard"
-        description="There was an error fetching dashboard data. Please try refreshing."
-        icon="⚠️"
+        description="Error fetching dashboard data. Check your connection and try refreshing."
       />
     );
   }
+
+  if (isLoading && !data) return <PageLoader />;
 
   const campaigns = data?.campaigns ?? [];
   const spendSeries = data?.spend_series ?? [];
   const leadsSeries = data?.leads_series ?? [];
 
   return (
-    <div className="flex flex-col gap-6 p-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-xl font-bold text-white">Overview</h1>
-        <p className="text-sm text-gray-500 mt-0.5">
-          {currentAccount.name} · Real-time performance
-        </p>
-      </div>
-
-      {/* Metric cards */}
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Overview"
+        subtitle={`${currentAccount.name} · Real-time performance`}
+      />
       <MetricCardRow data={data} isLoading={isLoading} />
-
-      {/* Spend & Leads chart */}
-      {(isLoading || spendSeries.length > 0) && (
-        <div>
-          {isLoading ? (
-            <div className="bg-[#141414] border border-[#262626] rounded-xl h-72 animate-pulse" />
-          ) : (
-            <SpendLeadsChart
-              spendSeries={spendSeries}
-              leadsSeries={leadsSeries}
-            />
-          )}
-        </div>
+      {spendSeries.length > 0 && (
+        <SpendLeadsChart spendSeries={spendSeries} leadsSeries={leadsSeries} />
       )}
-
-      {/* Campaign table */}
-      {isLoading ? (
-        <div className="bg-[#141414] border border-[#262626] rounded-xl h-48 animate-pulse" />
-      ) : campaigns.length === 0 ? (
+      {campaigns.length === 0 && !isLoading ? (
         <EmptyState
           title="No campaigns"
           description="No campaign data found for the current date range."
-          icon="📋"
         />
       ) : (
-        <CampaignTable
-          campaigns={campaigns}
-          targetCpl={currentAccount.target_cpl}
-        />
+        <CampaignTable campaigns={campaigns} targetCpl={currentAccount.target_cpl} />
       )}
     </div>
   );

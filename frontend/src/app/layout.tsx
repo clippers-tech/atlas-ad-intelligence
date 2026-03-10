@@ -6,19 +6,28 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "ATLAS — Ad Intelligence System",
-  description: "Autonomous ad intelligence, automation, and attribution",
+  description: "Autonomous ad intelligence, automation, and attribution for Meta Ads",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#0a0a0a] text-white antialiased">
+    <html lang="en">
+      <body>
         <Providers>
-          <Sidebar />
-          <Header />
-          <main className="ml-56 mt-14 p-6 min-h-[calc(100vh-3.5rem)]">
-            {children}
-          </main>
+          <div className="h-screen overflow-hidden grid"
+            style={{
+              gridTemplateColumns: "var(--sidebar-width) 1fr",
+              gridTemplateRows: "var(--header-height) 1fr",
+            }}>
+            <div className="row-span-2">
+              <Sidebar />
+            </div>
+            <Header />
+            <main className="overflow-y-auto p-6"
+              style={{ overscrollBehavior: "contain" }}>
+              {children}
+            </main>
+          </div>
         </Providers>
       </body>
     </html>

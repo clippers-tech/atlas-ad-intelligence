@@ -2,92 +2,77 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 import clsx from "clsx";
-
-const NAV = [
-  { label: "Dashboard", href: "/dashboard", icon: "📊", children: [
-    { label: "Overview", href: "/dashboard" },
-    { label: "Actions", href: "/dashboard/actions" },
-    { label: "Anomalies", href: "/dashboard/anomalies" },
-    { label: "Creatives", href: "/dashboard/creatives" },
-    { label: "Audiences", href: "/dashboard/audiences" },
-    { label: "Funnel", href: "/dashboard/funnel" },
-  ]},
-  { label: "Leads", href: "/leads", icon: "👤" },
-  { label: "Rules", href: "/rules", icon: "🎯" },
-  { label: "Insights", href: "/insights", icon: "🧠" },
-  { label: "Competitors", href: "/competitors", icon: "🔍" },
-  { label: "Reports", href: "/reports", icon: "📄" },
-  { label: "Settings", href: "/settings/accounts", icon: "⚙️", children: [
-    { label: "Accounts", href: "/settings/accounts" },
-    { label: "Seasonality", href: "/settings/seasonality" },
-  ]},
-];
+import { NAV_ITEMS } from "@/lib/constants";
+import { NAV_ICON_MAP } from "./NavIcons";
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const [expanded, setExpanded] = useState<string | null>("Dashboard");
 
   return (
-    <aside className="w-56 h-screen bg-[#0f0f0f] border-r border-[#262626] flex flex-col fixed left-0 top-0 z-30">
-      <div className="p-4 border-b border-[#262626]">
-        <h1 className="text-lg font-bold tracking-tight text-white">
-          ⚡ ATLAS
-        </h1>
-        <p className="text-xs text-gray-500 mt-0.5">Ad Intelligence System</p>
+    <aside className="w-[var(--sidebar-width)] h-screen bg-[var(--surface)] border-r border-[var(--border)] flex flex-col fixed left-0 top-0 z-30">
+      {/* Brand */}
+      <div className="px-5 py-4 border-b border-[var(--border)]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-amber-500/15 flex items-center justify-center">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
+                stroke="#F59E0B" strokeWidth="2"
+                strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
+          <div>
+            <h1 className="text-sm font-semibold text-[var(--text)] tracking-tight">
+              ATLAS
+            </h1>
+            <p className="text-[11px] text-[var(--muted)] leading-none mt-0.5">
+              Ad Intelligence
+            </p>
+          </div>
+        </div>
       </div>
-      <nav className="flex-1 overflow-y-auto py-2">
-        {NAV.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
-          const isOpen = expanded === item.label;
-          const hasChildren = item.children && item.children.length > 0;
 
-          return (
-            <div key={item.label}>
-              <button
-                onClick={() => {
-                  if (hasChildren) setExpanded(isOpen ? null : item.label);
-                }}
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto py-3 px-3"
+        style={{ overscrollBehavior: "contain" }}>
+        <div className="flex flex-col gap-0.5">
+          {NAV_ITEMS.map((item) => {
+            const isActive = pathname === item.href ||
+              (item.href !== "/dashboard" && pathname.startsWith(item.href));
+            const IconComponent = NAV_ICON_MAP[item.icon];
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
                 className={clsx(
-                  "w-full flex items-center gap-2 px-4 py-2 text-sm transition-colors",
-                  isActive ? "text-white bg-white/5" : "text-gray-400 hover:text-white hover:bg-white/5"
+                  "flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150",
+                  isActive
+                    ? "bg-amber-500/12 text-amber-400"
+                    : "text-[var(--text-secondary)] hover:text-[var(--text)] hover:bg-[var(--surface-2)]"
                 )}
               >
-                <span className="text-base">{item.icon}</span>
-                {!hasChildren ? (
-                  <Link href={item.href} className="flex-1 text-left">{item.label}</Link>
-                ) : (
-                  <span className="flex-1 text-left">{item.label}</span>
-                )}
-                {hasChildren && (
-                  <span className="text-xs">{isOpen ? "▾" : "▸"}</span>
-                )}
-              </button>
-              {hasChildren && isOpen && (
-                <div className="ml-8 border-l border-[#262626]">
-                  {item.children!.map((child) => (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      className={clsx(
-                        "block px-3 py-1.5 text-xs transition-colors",
-                        pathname === child.href
-                          ? "text-white bg-white/5"
-                          : "text-gray-500 hover:text-white"
-                      )}
-                    >
-                      {child.label}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                <span className={clsx(
+                  "flex-shrink-0",
+                  isActive ? "text-amber-400" : "text-[var(--muted)]"
+                )}>
+                  {IconComponent && <IconComponent />}
+                </span>
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
-      <div className="p-3 border-t border-[#262626] text-xs text-gray-600">
-        v1.0.0
+
+      {/* Footer */}
+      <div className="px-4 py-3 border-t border-[var(--border)]">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-amber-500/60" />
+          <span className="text-[11px] text-[var(--muted)]">
+            Meta Ads Only
+          </span>
+        </div>
       </div>
     </aside>
   );

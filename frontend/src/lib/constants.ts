@@ -1,11 +1,13 @@
-export const DEAL_STAGES = [
-  { value: "new", label: "New", emoji: "🆕" },
-  { value: "qualified", label: "Qualified", emoji: "✅" },
-  { value: "call_completed", label: "Call Completed", emoji: "📞" },
-  { value: "proposal_sent", label: "Proposal Sent", emoji: "📋" },
-  { value: "negotiation", label: "Negotiation", emoji: "🤝" },
-  { value: "closed_won", label: "Closed Won", emoji: "💰" },
-  { value: "closed_lost", label: "Closed Lost", emoji: "❌" },
+export const NAV_ITEMS = [
+  { label: "Overview", href: "/dashboard", icon: "overview" },
+  { label: "Campaigns", href: "/campaigns", icon: "campaigns" },
+  { label: "Ad Sets", href: "/adsets", icon: "adsets" },
+  { label: "Ads", href: "/ads", icon: "ads" },
+  { label: "Creatives", href: "/creatives", icon: "creatives" },
+  { label: "Rules", href: "/rules", icon: "rules" },
+  { label: "Competitor Intel", href: "/competitors", icon: "competitors" },
+  { label: "Insights", href: "/insights", icon: "insights" },
+  { label: "Settings", href: "/settings", icon: "settings" },
 ] as const;
 
 export const RULE_TYPES = [
@@ -16,30 +18,12 @@ export const RULE_TYPES = [
 ] as const;
 
 export const ACTION_TYPES = [
-  { value: "pause", label: "Pause", icon: "⏸️" },
-  { value: "resume", label: "Resume", icon: "▶️" },
-  { value: "increase_budget", label: "Increase Budget", icon: "📈" },
-  { value: "decrease_budget", label: "Decrease Budget", icon: "📉" },
-  { value: "duplicate", label: "Duplicate", icon: "📋" },
-  { value: "bid_adjust", label: "Bid Adjust", icon: "🎯" },
-] as const;
-
-export const AUDIENCE_TYPES = [
-  { value: "lookalike", label: "Lookalike", color: "blue" },
-  { value: "interest", label: "Interest", color: "violet" },
-  { value: "broad", label: "Broad", color: "slate" },
-  { value: "custom", label: "Custom", color: "emerald" },
-  { value: "retargeting", label: "Retargeting", color: "amber" },
-] as const;
-
-export const FATIGUE_LEVELS = {
-  fresh: { label: "Fresh", color: "emerald", emoji: "🟢" },
-  declining: { label: "Declining", color: "amber", emoji: "🟡" },
-  burned: { label: "Burned", color: "red", emoji: "🔴" },
-} as const;
-
-export const PLACEMENTS = [
-  "feed", "stories", "reels", "right_column", "search", "other",
+  { value: "pause", label: "Pause" },
+  { value: "resume", label: "Resume" },
+  { value: "increase_budget", label: "Increase Budget" },
+  { value: "decrease_budget", label: "Decrease Budget" },
+  { value: "duplicate", label: "Duplicate" },
+  { value: "bid_adjust", label: "Bid Adjust" },
 ] as const;
 
 export const METRICS = [
@@ -49,22 +33,17 @@ export const METRICS = [
 
 export const OPERATORS = [">", "<", ">=", "<=", "=="] as const;
 
-export const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: "chart", children: [
-    { label: "Overview", href: "/dashboard" },
-    { label: "Actions", href: "/dashboard/actions" },
-    { label: "Anomalies", href: "/dashboard/anomalies" },
-    { label: "Creatives", href: "/dashboard/creatives" },
-    { label: "Audiences", href: "/dashboard/audiences" },
-    { label: "Funnel", href: "/dashboard/funnel" },
-  ]},
-  { label: "Leads", href: "/leads", icon: "users" },
-  { label: "Rules", href: "/rules", icon: "bolt" },
-  { label: "Insights", href: "/insights", icon: "brain" },
-  { label: "Competitors", href: "/competitors", icon: "search" },
-  { label: "Reports", href: "/reports", icon: "document" },
-  { label: "Settings", href: "/settings/accounts", icon: "cog", children: [
-    { label: "Accounts", href: "/settings/accounts" },
-    { label: "Seasonality", href: "/settings/seasonality" },
-  ]},
+export const DATE_RANGES = [
+  { label: "Today", value: "1d" },
+  { label: "7d", value: "7d" },
+  { label: "14d", value: "14d" },
+  { label: "30d", value: "30d" },
+  { label: "All", value: "all" },
+] as const;
+
+export const CAMPAIGN_STATUSES = [
+  { value: "ACTIVE", label: "Active", color: "success" },
+  { value: "PAUSED", label: "Paused", color: "warning" },
+  { value: "DELETED", label: "Deleted", color: "danger" },
+  { value: "ARCHIVED", label: "Archived", color: "muted" },
 ] as const;

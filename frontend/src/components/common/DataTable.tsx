@@ -1,102 +1,70 @@
 "use client";
 
-import { ReactNode } from "react";
-
-type SortDir = "asc" | "desc";
+import clsx from "clsx";
 
 export interface Column<T> {
   key: string;
   label: string;
-  sortable?: boolean;
-  render?: (row: T) => ReactNode;
+  align?: "left" | "right" | "center";
+  render?: (row: T) => React.ReactNode;
 }
 
 interface DataTableProps<T> {
   columns: Column<T>[];
   data: T[];
-  onSort?: (key: string) => void;
-  sortKey?: string;
-  sortDir?: SortDir;
-}
-
-function SortIcon({ active, dir }: { active: boolean; dir?: SortDir }) {
-  if (!active) {
-    return (
-      <span className="ml-1 text-gray-600 text-xs">⇅</span>
-    );
-  }
-  return (
-    <span className="ml-1 text-gray-300 text-xs">
-      {dir === "asc" ? "↑" : "↓"}
-    </span>
-  );
+  keyField: string;
+  onRowClick?: (row: T) => void;
+  emptyMessage?: string;
 }
 
 export function DataTable<T extends Record<string, unknown>>({
-  columns,
-  data,
-  onSort,
-  sortKey,
-  sortDir,
+  columns, data, keyField, onRowClick, emptyMessage = "No data"
 }: DataTableProps<T>) {
+  if (!data.length) {
+    return (
+      <div className="text-center py-8 text-[12px] text-[var(--muted)]">
+        {emptyMessage}
+      </div>
+    );
+  }
+
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-[#262626]">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto">
+      <table className="w-full">
         <thead>
-          <tr className="bg-[#1a1a1a] border-b border-[#262626]">
+          <tr className="border-b border-[var(--border)]">
             {columns.map((col) => (
-              <th
-                key={col.key}
-                className={[
-                  "px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider whitespace-nowrap select-none",
-                  col.sortable && onSort
-                    ? "cursor-pointer hover:text-gray-200 transition-colors"
-                    : "",
-                ].join(" ")}
-                onClick={() => col.sortable && onSort?.(col.key)}
-              >
-                <span className="inline-flex items-center">
-                  {col.label}
-                  {col.sortable && (
-                    <SortIcon
-                      active={sortKey === col.key}
-                      dir={sortKey === col.key ? sortDir : undefined}
-                    />
-                  )}
-                </span>
+              <th key={col.key} className={clsx(
+                "px-4 py-2.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider whitespace-nowrap",
+                col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left"
+              )}>
+                {col.label}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-[#262626] bg-[#141414]">
-          {data.length === 0 ? (
-            <tr>
-              <td
-                colSpan={columns.length}
-                className="px-4 py-8 text-center text-gray-500"
-              >
-                No data available
-              </td>
+        <tbody>
+          {data.map((row) => (
+            <tr
+              key={String(row[keyField])}
+              onClick={() => onRowClick?.(row)}
+              className={clsx(
+                "border-b border-[var(--border)]/50 transition-colors",
+                onRowClick
+                  ? "cursor-pointer hover:bg-[var(--surface-2)]"
+                  : "hover:bg-[var(--surface)]/50"
+              )}
+            >
+              {columns.map((col) => (
+                <td key={col.key} className={clsx(
+                  "px-4 py-3 text-[13px]",
+                  col.align === "right" ? "text-right tabular-nums" : col.align === "center" ? "text-center" : "text-left"
+                )}>
+                  {col.render ? col.render(row) : String(row[col.key] ?? "—")}
+                </td>
+              ))}
             </tr>
-          ) : (
-            data.map((row, rowIdx) => (
-              <tr
-                key={rowIdx}
-                className="hover:bg-[#1a1a1a] transition-colors"
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className="px-4 py-3 text-gray-300 whitespace-nowrap"
-                  >
-                    {col.render
-                      ? col.render(row)
-                      : (row[col.key] as ReactNode) ?? "—"}
-                  </td>
-                ))}
-              </tr>
-            ))
-          )}
+          ))}
         </tbody>
       </table>
     </div>

@@ -30,16 +30,19 @@ export interface Anomaly {
 export interface CreativePerformance {
   id: string;
   ad_id: string;
-  name: string;
+  ad_name: string;
+  ad_type?: string;
   thumbnail_url: string | null;
   status: string;
   spend: number;
+  impressions: number;
   ctr: number;
   cpl: number;
+  conversions: number;
   video_view_3s_rate: number;
   video_p50: number;
   video_p75: number;
-  fatigue_level: "fresh" | "declining" | "burned";
+  fatigue_level: string;
   age_days: number;
   hook_type: string | null;
   cta_type: string | null;
@@ -90,6 +93,10 @@ export interface ClaudeInsight {
   id: string;
   account_id: string | null;
   type: string;
+  title?: string;
+  summary?: string;
+  recommendation?: string;
+  priority?: string;
   response_text: string | null;
   recommendations_json: string | null;
   model_used: string | null;
@@ -100,13 +107,16 @@ export interface ClaudeInsight {
 
 export interface Competitor {
   id: string;
-  competitor_name: string;
+  name: string;
+  domain?: string;
   meta_page_id: string | null;
   website_url: string | null;
   is_active: boolean;
+  ad_count?: number;
   active_ads_count?: number;
   new_this_week?: number;
   est_monthly_spend?: string;
+  last_scraped_at?: string;
 }
 
 export interface CompetitorAd {

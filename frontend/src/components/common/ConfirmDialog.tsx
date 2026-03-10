@@ -1,84 +1,50 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  description: string;
-  onConfirm: () => void;
-  onCancel: () => void;
+  message: string;
   confirmLabel?: string;
   variant?: "danger" | "default";
+  onConfirm: () => void;
+  onCancel: () => void;
 }
 
 export function ConfirmDialog({
-  open,
-  title,
-  description,
-  onConfirm,
-  onCancel,
-  confirmLabel = "Confirm",
-  variant = "default",
+  open, title, message, confirmLabel = "Confirm",
+  variant = "default", onConfirm, onCancel
 }: ConfirmDialogProps) {
-  const cancelRef = useRef<HTMLButtonElement>(null);
-
-  // Focus cancel button when opened, handle Escape key
   useEffect(() => {
-    if (!open) return;
-    cancelRef.current?.focus();
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    document.addEventListener("keydown", handleKey);
-    return () => document.removeEventListener("keydown", handleKey);
-  }, [open, onCancel]);
+    if (open) {
+      document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
+    }
+  }, [open]);
 
   if (!open) return null;
 
-  const confirmClasses =
-    variant === "danger"
-      ? "bg-red-600 hover:bg-red-500 text-white focus:ring-red-500"
-      : "bg-blue-600 hover:bg-blue-500 text-white focus:ring-blue-500";
-
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="confirm-dialog-title"
-    >
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-
-      {/* Panel */}
-      <div className="relative z-10 w-full max-w-md rounded-xl bg-[#1a1a1a] border border-[#262626] shadow-2xl p-6">
-        <h2
-          id="confirm-dialog-title"
-          className="text-base font-semibold text-gray-100 mb-2"
-        >
-          {title}
-        </h2>
-        <p className="text-sm text-gray-400 leading-relaxed mb-6">
-          {description}
-        </p>
-        <div className="flex justify-end gap-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60" onClick={onCancel} />
+      <div className="relative bg-[var(--surface-2)] border border-[var(--border)] rounded-xl p-5 max-w-sm w-full mx-4 shadow-xl">
+        <h3 className="text-sm font-semibold text-[var(--text)] mb-1.5">{title}</h3>
+        <p className="text-[12px] text-[var(--text-secondary)] mb-5">{message}</p>
+        <div className="flex justify-end gap-2">
           <button
-            ref={cancelRef}
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium rounded-lg bg-[#262626] text-gray-300 hover:bg-[#303030] hover:text-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
+            className="px-3 py-1.5 text-[12px] font-medium text-[var(--text-secondary)] bg-[var(--surface-3)] hover:bg-[var(--border)] rounded-lg transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className={[
-              "px-4 py-2 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#1a1a1a]",
-              confirmClasses,
-            ].join(" ")}
+            className={`px-3 py-1.5 text-[12px] font-medium rounded-lg transition-colors ${
+              variant === "danger"
+                ? "bg-red-500/15 text-red-400 hover:bg-red-500/25"
+                : "bg-amber-500/15 text-amber-400 hover:bg-amber-500/25"
+            }`}
           >
             {confirmLabel}
           </button>
