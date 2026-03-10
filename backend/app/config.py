@@ -24,14 +24,6 @@ class Settings(BaseSettings):
     meta_system_user_token: str = ""
     meta_ad_account_ids: str = ""  # Comma-separated
 
-    # Calendly
-    calendly_api_token: str = ""
-    calendly_webhook_secret: str = ""
-
-    # Stripe
-    stripe_api_key: str = ""
-    stripe_webhook_secret: str = ""
-
     # Claude (Anthropic)
     anthropic_api_key: str = ""
     claude_model: str = "claude-sonnet-4-20250514"

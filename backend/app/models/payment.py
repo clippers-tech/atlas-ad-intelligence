@@ -1,4 +1,8 @@
-"""Payment model (Stripe payments)."""
+"""Payment model — stub for revenue attribution.
+
+Stripe integration removed. Payments can be logged
+manually or via deal close events.
+"""
 
 import uuid
 from datetime import datetime
@@ -23,23 +27,10 @@ class Payment(Base):
     account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False, index=True
     )
-    stripe_payment_id: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True
-    )
-    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, default=0.0)
     currency: Mapped[str] = mapped_column(String(10), default="GBP")
-    payment_type: Mapped[str] = mapped_column(
-        String(50), default="one_time"  # one_time, recurring
-    )
-    paid_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     deal = relationship("Deal", back_populates="payments")

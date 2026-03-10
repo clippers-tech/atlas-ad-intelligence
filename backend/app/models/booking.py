@@ -1,4 +1,8 @@
-"""Booking model (Calendly events)."""
+"""Booking model — stub for funnel attribution.
+
+Calendly integration removed. Bookings can be tracked
+via landing page events or manual entry.
+"""
 
 import uuid
 from datetime import datetime
@@ -23,26 +27,14 @@ class Booking(Base):
     account_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False, index=True
     )
-    calendly_event_id: Mapped[str] = mapped_column(
-        String(255), nullable=False, unique=True
-    )
-    event_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(
         String(50), default="scheduled"
-        # scheduled, completed, no_show, cancelled
-    )
-    booked_at: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
     )
     event_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     lead = relationship("Lead", back_populates="bookings")

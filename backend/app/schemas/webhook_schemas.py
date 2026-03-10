@@ -1,18 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 from pydantic import BaseModel
-
-
-class CalendlyWebhookPayload(BaseModel):
-    event: str
-    payload: dict[str, Any]
-
-
-class StripeWebhookPayload(BaseModel):
-    type: str
-    data: dict[str, Any]
 
 
 class LandingPageEventPayload(BaseModel):

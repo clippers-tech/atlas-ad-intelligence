@@ -17,8 +17,6 @@ from app.api.dashboard.creative_leaderboard import router as dashboard_creatives
 from app.api.dashboard.audience_heatmap import router as dashboard_audiences_router
 from app.api.dashboard.funnel import router as dashboard_funnel_router
 from app.api.dashboard.anomaly_timeline import router as dashboard_anomalies_router
-from app.api.webhooks.calendly_webhook import router as calendly_router
-from app.api.webhooks.stripe_webhook import router as stripe_router
 from app.api.webhooks.landing_page_webhook import router as landing_page_router
 
 master_router = APIRouter()
@@ -38,6 +36,4 @@ master_router.include_router(dashboard_creatives_router, prefix="/dashboard", ta
 master_router.include_router(dashboard_audiences_router, prefix="/dashboard", tags=["Dashboard"])
 master_router.include_router(dashboard_funnel_router, prefix="/dashboard", tags=["Dashboard"])
 master_router.include_router(dashboard_anomalies_router, prefix="/dashboard", tags=["Dashboard"])
-master_router.include_router(calendly_router, prefix="/webhooks", tags=["Webhooks"])
-master_router.include_router(stripe_router, prefix="/webhooks", tags=["Webhooks"])
 master_router.include_router(landing_page_router, prefix="/webhooks", tags=["Webhooks"])
