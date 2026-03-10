@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
 async def list_schedule_logs(
     limit: int = Query(50, ge=1, le=200),
     status: str | None = Query(None),
@@ -50,7 +50,7 @@ async def list_schedule_logs(
     }
 
 
-@router.post("/", status_code=201)
+@router.post("", status_code=201)
 async def create_schedule_log(
     payload: ScheduleLogCreate,
     db: AsyncSession = Depends(get_db),

@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
 async def list_ads(
     account_id: str = Query(...),
     limit: int = Query(100, ge=1, le=500),

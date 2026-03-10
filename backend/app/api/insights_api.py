@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/")
+@router.get("")
 async def list_insights(
     account_id: str = Query(...),
     type: str | None = Query(None),
