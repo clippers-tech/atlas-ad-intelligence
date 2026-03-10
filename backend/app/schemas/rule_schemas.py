@@ -38,8 +38,8 @@ class RuleResponse(BaseModel):
     name: str
     description: Optional[str] = None
     type: str
-    condition_json: dict[str, Any]
-    action_json: dict[str, Any]
+    condition_json: Any  # Stored as JSON string in DB, parsed in API
+    action_json: Any  # Stored as JSON string in DB, parsed in API
     is_enabled: bool
     priority: int
     cooldown_minutes: int
