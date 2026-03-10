@@ -36,8 +36,6 @@ celery_app.config_from_object(
             "app.tasks.meta_pull_task.*": {"queue": "meta"},
             "app.tasks.review_status_task.*": {"queue": "meta"},
             "app.tasks.rule_engine_task.*": {"queue": "rules"},
-            "app.tasks.claude_daily_task.*": {"queue": "ai"},
-            "app.tasks.claude_weekly_task.*": {"queue": "ai"},
             "app.tasks.report_pdf_task.*": {"queue": "reports"},
         },
         # Worker config
@@ -56,9 +54,6 @@ celery_app.autodiscover_tasks(
         "app.tasks.review_status_task",
         "app.tasks.health_check_task",
         "app.tasks.rule_engine_task",
-        "app.tasks.competitor_scrape_task",
-        "app.tasks.claude_daily_task",
-        "app.tasks.claude_weekly_task",
         "app.tasks.market_check_task",
         "app.tasks.creative_velocity_task",
         "app.tasks.audience_health_task",

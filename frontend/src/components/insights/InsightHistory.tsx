@@ -1,15 +1,15 @@
 "use client";
 
-import type { ClaudeInsight } from "@/lib/types";
+import type { Insight } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import DigestCard from "./DigestCard";
 
 interface InsightHistoryProps {
-  insights: ClaudeInsight[];
+  insights: Insight[];
 }
 
-function groupByDate(insights: ClaudeInsight[]): Record<string, ClaudeInsight[]> {
-  return insights.reduce<Record<string, ClaudeInsight[]>>((acc, insight) => {
+function groupByDate(insights: Insight[]): Record<string, Insight[]> {
+  return insights.reduce<Record<string, Insight[]>>((acc, insight) => {
     const date = formatDate(insight.created_at);
     if (!acc[date]) acc[date] = [];
     acc[date].push(insight);

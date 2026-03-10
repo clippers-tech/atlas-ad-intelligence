@@ -1,11 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import type { ClaudeInsight } from "@/lib/types";
+import type { Insight } from "@/lib/types";
 import { formatDate, formatRelative } from "@/lib/utils";
 
 interface DigestCardProps {
-  insight: ClaudeInsight;
+  insight: Insight;
 }
 
 const TYPE_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
@@ -96,12 +96,9 @@ export default function DigestCard({ insight }: DigestCardProps) {
       </div>
 
       {/* Footer meta */}
-      {insight.tokens_used && (
+      {insight.source && (
         <div className="px-4 py-2 border-t border-gray-800/60 flex items-center gap-3 text-xs text-gray-600">
-          <span>{insight.model_used ?? "claude"}</span>
-          <span>·</span>
-          <span>{insight.tokens_used.toLocaleString()} tokens</span>
-          {insight.cost_usd && <span>· ${insight.cost_usd.toFixed(4)}</span>}
+          <span>{insight.source}</span>
         </div>
       )}
     </div>

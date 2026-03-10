@@ -96,4 +96,3 @@ class CircuitBreaker:
 
 # Pre-built instances for known external services
 meta_circuit = CircuitBreaker("meta")
-claude_circuit = CircuitBreaker("claude")

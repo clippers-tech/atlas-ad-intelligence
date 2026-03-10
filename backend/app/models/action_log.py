@@ -37,7 +37,7 @@ class ActionLog(Base):
     )
     triggered_by: Mapped[str] = mapped_column(
         String(50), default="rule_engine"
-        # rule_engine, claude_recommendation, manual
+        # rule_engine, computer_schedule, manual
     )
 
     created_at: Mapped[datetime] = mapped_column(

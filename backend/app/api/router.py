@@ -7,7 +7,6 @@ from app.api.accounts_api import router as accounts_router
 from app.api.leads_api import router as leads_router
 from app.api.deals_api import router as deals_router
 from app.api.rules_api import router as rules_router
-from app.api.claude_api import router as claude_router
 from app.api.competitors_api import router as competitors_router
 from app.api.reports_api import router as reports_router
 from app.api.tracking_api import router as tracking_router
@@ -26,7 +25,6 @@ master_router.include_router(accounts_router, prefix="/accounts", tags=["Account
 master_router.include_router(leads_router, prefix="/leads", tags=["Leads"])
 master_router.include_router(deals_router, prefix="/deals", tags=["Deals"])
 master_router.include_router(rules_router, prefix="/rules", tags=["Rules"])
-master_router.include_router(claude_router, tags=["Insights"])
 master_router.include_router(competitors_router, prefix="/competitors", tags=["Competitors"])
 master_router.include_router(reports_router, prefix="/reports", tags=["Reports"])
 master_router.include_router(tracking_router, prefix="/tracking", tags=["Tracking"])

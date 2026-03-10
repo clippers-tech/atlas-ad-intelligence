@@ -44,8 +44,8 @@ class CreativeMetadata(Base):
     fatigued_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    auto_tagged_by_claude: Mapped[bool] = mapped_column(Boolean, default=False)
-    claude_analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    auto_tagged_by_ai: Mapped[bool] = mapped_column(Boolean, default=False)
+    ai_analysis_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

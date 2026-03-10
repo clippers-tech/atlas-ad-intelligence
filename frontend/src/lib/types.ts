@@ -190,6 +190,6 @@ export interface RuleAction {
 export type {
   ActionLogEntry, Anomaly, CreativePerformance, PlacementBreakdown,
   AudiencePerformance, FunnelData, FunnelStage, ConversionRate,
-  ClaudeInsight, Competitor, CompetitorAd,
+  Insight, Competitor, CompetitorAd,
   PaginatedResponse, HealthStatus, TaskHealth,
 } from "./types-extended";

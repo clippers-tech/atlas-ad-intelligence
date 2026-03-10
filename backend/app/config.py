@@ -24,12 +24,7 @@ class Settings(BaseSettings):
     meta_system_user_token: str = ""
     meta_ad_account_ids: str = ""  # Comma-separated
 
-    # Claude (Anthropic)
-    anthropic_api_key: str = ""
-    claude_model: str = "claude-sonnet-4-20250514"
 
-    # Apify
-    apify_api_token: str = ""
 
     # Telegram
     telegram_bot_token: str = ""

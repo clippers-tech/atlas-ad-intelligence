@@ -1,10 +1,10 @@
 "use client";
 
-import type { ClaudeInsight } from "@/lib/types";
+import type { Insight } from "@/lib/types";
 import DigestCard from "./DigestCard";
 
 interface CrossAccountTabProps {
-  insights: ClaudeInsight[];
+  insights: Insight[];
 }
 
 export default function CrossAccountTab({ insights }: CrossAccountTabProps) {

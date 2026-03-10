@@ -9,14 +9,14 @@ import { EmptyState } from "@/components/common/EmptyState";
 import { PageLoader } from "@/components/common/LoadingSpinner";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { formatRelative } from "@/lib/utils";
-import type { ClaudeInsight } from "@/lib/types";
+import type { Insight } from "@/lib/types";
 
 export default function InsightsPage() {
   const { currentAccount } = useAccountContext();
 
   const { data, isLoading } = useQuery({
     queryKey: ["insights", currentAccount?.id],
-    queryFn: () => fetchData<{ data: ClaudeInsight[] }>("/insights"),
+    queryFn: () => fetchData<{ data: Insight[] }>("/insights"),
     enabled: !!currentAccount,
   });
 
@@ -38,17 +38,17 @@ export default function InsightsPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Insights"
-        subtitle="AI-generated insights from your Meta ad data"
+        subtitle="AI-generated insights from scheduled analysis runs"
         actions={
-          <button className="px-3 py-1.5 rounded-lg bg-amber-500/15 text-amber-400 text-[12px] font-medium hover:bg-amber-500/25 transition-colors">
-            Generate Insights
-          </button>
+          <span className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-[11px] font-medium">
+            Powered by Computer
+          </span>
         }
       />
       {insights.length === 0 ? (
         <EmptyState
           title="No insights yet"
-          description="Insights will be generated as your ad data accumulates. Check back after campaigns have been running."
+          description="Insights will appear after Perplexity Computer runs scheduled analysis on your ad data."
         />
       ) : (
         <div className="flex flex-col gap-3">

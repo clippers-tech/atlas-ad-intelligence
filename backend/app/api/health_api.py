@@ -15,8 +15,8 @@ router = APIRouter()
 TRACKED_TASKS = [
     "meta_pull",
     "rule_engine",
-    "claude_digest",
-    "competitor_scraper",
+    "market_check",
+    "creative_velocity",
 ]
 
 

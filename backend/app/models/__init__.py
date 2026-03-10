@@ -15,9 +15,7 @@ from app.models.rule import Rule  # noqa: F401
 from app.models.action_log import ActionLog  # noqa: F401
 from app.models.competitor_ad import CompetitorAd  # noqa: F401
 from app.models.competitor_config import CompetitorConfig  # noqa: F401
-from app.models.claude_insight import ClaudeInsight  # noqa: F401
-from app.models.claude_memory import ClaudeMemory  # noqa: F401
-from app.models.insight_outcome import InsightOutcome  # noqa: F401
+
 from app.models.market_condition import MarketCondition  # noqa: F401
 from app.models.seasonality_config import SeasonalityConfig  # noqa: F401
 from app.models.audience_test_queue import AudienceTestQueue  # noqa: F401

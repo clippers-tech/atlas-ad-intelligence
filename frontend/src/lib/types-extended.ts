@@ -89,7 +89,7 @@ export interface ConversionRate {
   rate: number;
 }
 
-export interface ClaudeInsight {
+export interface Insight {
   id: string;
   account_id: string | null;
   type: string;
@@ -99,9 +99,7 @@ export interface ClaudeInsight {
   priority?: string;
   response_text: string | null;
   recommendations_json: string | null;
-  model_used: string | null;
-  tokens_used: number | null;
-  cost_usd: number | null;
+  source: string | null; // "computer_schedule" | "manual"
   created_at: string;
 }
 

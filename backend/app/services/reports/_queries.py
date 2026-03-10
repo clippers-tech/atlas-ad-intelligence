@@ -11,7 +11,6 @@ from app.models.action_log import ActionLog
 from app.models.ad import Ad
 from app.models.ad_metric import AdMetric
 from app.models.campaign import Campaign
-from app.models.claude_insight import ClaudeInsight
 from app.models.deal import Deal
 from app.models.lead import Lead
 
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 async def daily_spend_series(
     db: AsyncSession, account_id: UUID, since: datetime
 ) -> list[dict]:
-    """Daily aggregated spend/impressions/clicks/leads for a time window."""
+    """Daily aggregated spend/impressions/clicks/leads."""
     result = await db.execute(
         select(
             func.date_trunc("day", AdMetric.timestamp).label("day"),
@@ -30,7 +29,12 @@ async def daily_spend_series(
             func.sum(AdMetric.clicks).label("clicks"),
             func.sum(AdMetric.conversions).label("leads"),
         )
-        .where(and_(AdMetric.account_id == account_id, AdMetric.timestamp >= since))
+        .where(
+            and_(
+                AdMetric.account_id == account_id,
+                AdMetric.timestamp >= since,
+            )
+        )
         .group_by(func.date_trunc("day", AdMetric.timestamp))
         .order_by(func.date_trunc("day", AdMetric.timestamp))
     )
@@ -41,9 +45,11 @@ async def daily_spend_series(
             "impressions": int(row.impressions or 0),
             "clicks": int(row.clicks or 0),
             "leads": int(row.leads or 0),
-            "cpl": float(row.spend or 0) / max(int(row.leads or 0), 1)
-            if int(row.leads or 0) > 0
-            else 0.0,
+            "cpl": (
+                float(row.spend or 0) / int(row.leads or 1)
+                if int(row.leads or 0) > 0
+                else 0.0
+            ),
         }
         for row in result.all()
     ]
@@ -52,7 +58,7 @@ async def daily_spend_series(
 async def campaign_breakdown(
     db: AsyncSession, account_id: UUID, since: datetime
 ) -> list[dict]:
-    """Per-campaign aggregated metrics, ordered by spend descending."""
+    """Per-campaign aggregated metrics, ordered by spend desc."""
     result = await db.execute(
         select(
             Campaign.name,
@@ -64,7 +70,12 @@ async def campaign_breakdown(
         )
         .join(Ad, AdMetric.ad_id == Ad.id)
         .join(Campaign, Campaign.id == Ad.ad_set_id)
-        .where(and_(AdMetric.account_id == account_id, AdMetric.timestamp >= since))
+        .where(
+            and_(
+                AdMetric.account_id == account_id,
+                AdMetric.timestamp >= since,
+            )
+        )
         .group_by(Campaign.id, Campaign.name, Campaign.status)
         .order_by(func.sum(AdMetric.spend).desc())
     )
@@ -76,9 +87,11 @@ async def campaign_breakdown(
             "impressions": int(r.impressions or 0),
             "clicks": int(r.clicks or 0),
             "leads": int(r.leads or 0),
-            "cpl": float(r.spend or 0) / max(int(r.leads or 0), 1)
-            if int(r.leads or 0) > 0
-            else 0.0,
+            "cpl": (
+                float(r.spend or 0) / int(r.leads or 1)
+                if int(r.leads or 0) > 0
+                else 0.0
+            ),
         }
         for r in result.all()
     ]
@@ -124,35 +137,54 @@ async def top_ads(
     ]
 
 
-async def lead_pipeline(db: AsyncSession, account_id: UUID, since: datetime) -> dict:
-    """Lead count and deal stage breakdown for the period."""
+async def lead_pipeline(
+    db: AsyncSession, account_id: UUID, since: datetime
+) -> dict:
+    """Lead count and deal stage breakdown."""
     lead_count = (
         await db.execute(
             select(func.count(Lead.id)).where(
-                and_(Lead.account_id == account_id, Lead.created_at >= since)
+                and_(
+                    Lead.account_id == account_id,
+                    Lead.created_at >= since,
+                )
             )
         )
     ).scalar_one_or_none() or 0
 
     stage_result = await db.execute(
-        select(Deal.stage, func.count(Deal.id).label("count"))
+        select(
+            Deal.stage,
+            func.count(Deal.id).label("count"),
+        )
         .join(Lead, Deal.lead_id == Lead.id)
-        .where(and_(Deal.account_id == account_id, Deal.created_at >= since))
+        .where(
+            and_(
+                Deal.account_id == account_id,
+                Deal.created_at >= since,
+            )
+        )
         .group_by(Deal.stage)
     )
     return {
         "total_leads": lead_count,
-        "pipeline_stages": {r.stage: r.count for r in stage_result.all()},
+        "pipeline_stages": {
+            r.stage: r.count for r in stage_result.all()
+        },
     }
 
 
-async def revenue_attribution(db: AsyncSession, account_id: UUID, since: datetime) -> dict:
+async def revenue_attribution(
+    db: AsyncSession, account_id: UUID, since: datetime
+) -> dict:
     """Closed-won deal revenue and ROAS for the period."""
     rev_row = (
         await db.execute(
             select(
                 func.count(Deal.id).label("closed_count"),
-                func.coalesce(func.sum(Deal.revenue), 0).label("total_revenue"),
+                func.coalesce(
+                    func.sum(Deal.revenue), 0
+                ).label("total_revenue"),
             ).where(
                 and_(
                     Deal.account_id == account_id,
@@ -166,49 +198,48 @@ async def revenue_attribution(db: AsyncSession, account_id: UUID, since: datetim
     total_spend = float(
         (
             await db.execute(
-                select(func.coalesce(func.sum(AdMetric.spend), 0)).where(
-                    and_(AdMetric.account_id == account_id, AdMetric.timestamp >= since)
+                select(
+                    func.coalesce(func.sum(AdMetric.spend), 0)
+                ).where(
+                    and_(
+                        AdMetric.account_id == account_id,
+                        AdMetric.timestamp >= since,
+                    )
                 )
             )
-        ).scalar_one() or 0
+        ).scalar_one()
+        or 0
     )
     total_revenue = float(rev_row.total_revenue or 0)
     return {
         "closed_deals": int(rev_row.closed_count or 0),
         "total_revenue": total_revenue,
         "total_spend": total_spend,
-        "roas": total_revenue / total_spend if total_spend > 0 else 0.0,
+        "roas": (
+            total_revenue / total_spend if total_spend > 0 else 0.0
+        ),
     }
 
 
 async def system_actions_summary(
     db: AsyncSession, account_id: UUID, since: datetime
 ) -> list[dict]:
-    """Grouped count of automated actions taken in the period."""
+    """Grouped count of automated actions taken."""
     result = await db.execute(
-        select(ActionLog.action_type, func.count(ActionLog.id).label("count"))
-        .where(and_(ActionLog.account_id == account_id, ActionLog.created_at >= since))
+        select(
+            ActionLog.action_type,
+            func.count(ActionLog.id).label("count"),
+        )
+        .where(
+            and_(
+                ActionLog.account_id == account_id,
+                ActionLog.created_at >= since,
+            )
+        )
         .group_by(ActionLog.action_type)
         .order_by(func.count(ActionLog.id).desc())
     )
-    return [{"action_type": r.action_type, "count": r.count} for r in result.all()]
-
-
-async def claude_insights_for_period(
-    db: AsyncSession, account_id: UUID, since: datetime, limit: int = 5
-) -> list[dict]:
-    """Fetch recent Claude insights generated in the period."""
-    result = await db.execute(
-        select(ClaudeInsight.type, ClaudeInsight.response_text, ClaudeInsight.created_at)
-        .where(and_(ClaudeInsight.account_id == account_id, ClaudeInsight.created_at >= since))
-        .order_by(ClaudeInsight.created_at.desc())
-        .limit(limit)
-    )
     return [
-        {
-            "type": r.type,
-            "summary": (r.response_text or "")[:400],
-            "created_at": r.created_at.isoformat(),
-        }
+        {"action_type": r.action_type, "count": r.count}
         for r in result.all()
     ]
