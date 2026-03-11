@@ -39,16 +39,8 @@ export default function CompetitorsPage() {
   const competitors = data?.data ?? [];
   const selected = competitors.find((c) => c.id === selectedId);
 
-  const handleAdd = async (formData: {
-    competitor_name: string;
-    meta_page_id?: string;
-    website_url?: string;
-  }) => {
-    await postData("/competitors", {
-      competitor_name: formData.competitor_name,
-      meta_page_id: formData.meta_page_id || null,
-      website_url: formData.website_url || null,
-    });
+  const handleAdd = async (formData: Record<string, unknown>) => {
+    await postData("/competitors", formData);
     queryClient.invalidateQueries({ queryKey: ["competitors"] });
     setShowForm(false);
   };

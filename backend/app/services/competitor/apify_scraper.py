@@ -1,22 +1,25 @@
 """Apify Facebook Ads Scraper — fetches competitor ads via Apify actor.
 
-Uses the apify/facebook-ads-scraper actor to pull ads from the
-Meta Ad Library for a given Facebook Page ID.
+Supports two startUrl types per the actor docs:
+1. Facebook page URL: https://www.facebook.com/SHEINOFFICIAL
+2. Ad Library filtered URL with country, language, media, platforms
 
 GUARDRAILS:
 - resultsLimit enforced on every run (default 10, max 50)
 - Cost estimate returned with every start
-- Settings controlled via APIFY_DEFAULT_ADS / APIFY_MAX_ADS_PER_FETCH
+- Settings via APIFY_DEFAULT_ADS / APIFY_MAX_ADS_PER_FETCH
 
 Pricing: ~$5 per 1000 results ($0.005/ad).
 """
 
 import logging
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 
 from app.config import settings
+from app.services.competitor.apify_parser import parse_apify_ad
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +34,12 @@ class ApifyScraperError(Exception):
 
 
 def _clamp_limit(requested: int) -> int:
-    """Enforce hard ceiling on results. Never exceed config max."""
+    """Enforce hard ceiling on results."""
     hard_max = settings.apify_max_ads_per_fetch
     clamped = max(1, min(requested, hard_max))
     if requested > hard_max:
         logger.warning(
-            "apify: requested %d ads, clamped to hard max %d",
-            requested, hard_max,
+            "apify: requested %d ads, clamped to %d", requested, hard_max
         )
     return clamped
 
@@ -47,36 +49,77 @@ def estimate_cost(num_ads: int) -> float:
     return round(num_ads * settings.apify_cost_per_ad, 4)
 
 
-def _build_ad_library_url(page_id: str, country: str = "ALL") -> str:
-    """Build a Meta Ad Library URL for a specific page."""
-    return (
-        f"https://www.facebook.com/ads/library/"
-        f"?active_status=active&ad_type=all"
-        f"&country={country}"
-        f"&view_all_page_id={page_id}"
-    )
+def build_start_urls(
+    page_id: str | None = None,
+    facebook_url: str | None = None,
+    country: str = "ALL",
+    media_type: str = "all",
+    platforms: str = "facebook,instagram",
+    language: str = "en",
+) -> list[dict[str, str]]:
+    """Build startUrls array for the Apify actor.
+
+    Two URL types supported:
+    1. Page URL: https://www.facebook.com/SHEINOFFICIAL
+    2. Ad Library URL with full filter params
+    """
+    urls: list[dict[str, str]] = []
+
+    # Add page URL if we have facebook_url
+    if facebook_url and facebook_url.strip():
+        urls.append({"url": facebook_url.strip()})
+
+    # Build Ad Library filtered URL if we have page_id
+    if page_id:
+        parts = [
+            "https://www.facebook.com/ads/library/",
+            "?active_status=active",
+            "&ad_type=all",
+            f"&content_languages[0]={quote(language)}",
+            f"&country={quote(country)}",
+            "&is_targeted_country=false",
+        ]
+        if media_type and media_type != "all":
+            parts.append(f"&media_type={quote(media_type)}")
+        platform_list = [
+            p.strip() for p in platforms.split(",") if p.strip()
+        ]
+        for i, plat in enumerate(platform_list):
+            parts.append(f"&publisher_platforms[{i}]={quote(plat)}")
+        parts.append("&search_type=page")
+        parts.append(f"&view_all_page_id={page_id}")
+        urls.append({"url": "".join(parts)})
+
+    if not urls:
+        raise ApifyScraperError(
+            "No Facebook URL or Page ID — cannot build scraper URLs"
+        )
+    return urls
 
 
 async def start_run(
-    page_id: str,
+    page_id: str | None = None,
+    facebook_url: str | None = None,
     country: str = "ALL",
+    media_type: str = "all",
+    platforms: str = "facebook,instagram",
+    language: str = "en",
     max_ads: int | None = None,
 ) -> dict[str, Any]:
-    """Start an Apify scraper run. Returns run_id, dataset_id, cost.
-
-    max_ads is clamped to APIFY_MAX_ADS_PER_FETCH (default 50).
-    If not provided, uses APIFY_DEFAULT_ADS (default 10).
-    """
+    """Start an Apify scraper run with full config."""
     token = settings.apify_api_token
     if not token:
         raise ApifyScraperError("APIFY_API_TOKEN not configured")
 
     limit = _clamp_limit(max_ads or settings.apify_default_ads)
-    ad_library_url = _build_ad_library_url(page_id, country)
+    start_urls = build_start_urls(
+        page_id=page_id, facebook_url=facebook_url,
+        country=country, media_type=media_type,
+        platforms=platforms, language=language,
+    )
 
-    # Correct Apify actor input format
     run_input = {
-        "startUrls": [{"url": ad_library_url}],
+        "startUrls": start_urls,
         "resultsLimit": limit,
         "isDetailsPerAd": False,
         "includeAboutPage": False,
@@ -85,8 +128,8 @@ async def start_run(
 
     cost_est = estimate_cost(limit)
     logger.info(
-        "apify: starting run page_id=%s limit=%d est_cost=$%.4f",
-        page_id, limit, cost_est,
+        "apify: starting run page_id=%s urls=%d limit=%d cost=$%.4f",
+        page_id, len(start_urls), limit, cost_est,
     )
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
@@ -95,10 +138,9 @@ async def start_run(
             json=run_input,
         )
         data = resp.json().get("data", resp.json())
-
         run_id = data.get("id", "")
         dataset_id = data.get("defaultDatasetId", "")
-        status = data.get("status", "UNKNOWN")
+        run_status = data.get("status", "UNKNOWN")
 
         if not run_id:
             error = resp.json().get("error", {})
@@ -106,14 +148,10 @@ async def start_run(
                 f"Failed to start: {error.get('message', 'Unknown')}"
             )
 
-        logger.info(
-            "apify: run started id=%s dataset=%s status=%s",
-            run_id, dataset_id, status,
-        )
         return {
             "run_id": run_id,
             "dataset_id": dataset_id,
-            "status": status,
+            "status": run_status,
             "results_limit": limit,
             "estimated_cost": cost_est,
         }
@@ -139,9 +177,7 @@ async def get_run_results(
 ) -> list[dict[str, Any]]:
     """Fetch parsed results from a completed Apify run."""
     token = settings.apify_api_token
-    fetch_limit = _clamp_limit(
-        limit or settings.apify_default_ads
-    )
+    fetch_limit = _clamp_limit(limit or settings.apify_default_ads)
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         resp = await client.get(
@@ -151,59 +187,10 @@ async def get_run_results(
         raw_ads = resp.json()
 
     if not isinstance(raw_ads, list):
-        raise ApifyScraperError(
-            f"Unexpected response: {type(raw_ads)}"
-        )
+        raise ApifyScraperError(f"Unexpected response: {type(raw_ads)}")
 
-    parsed = [_parse_apify_ad(ad) for ad in raw_ads]
+    parsed = [parse_apify_ad(ad) for ad in raw_ads]
     logger.info(
         "apify: parsed %d ads from dataset %s", len(parsed), dataset_id
     )
     return parsed
-
-
-def _parse_apify_ad(raw: dict[str, Any]) -> dict[str, Any]:
-    """Convert Apify ad record into our ingest format."""
-    snapshot = raw.get("snapshot", {})
-    cards = snapshot.get("cards", [])
-    first_card = cards[0] if cards else {}
-
-    # Extract ad text
-    ad_text = first_card.get("body")
-    if not ad_text:
-        body = snapshot.get("body")
-        if isinstance(body, dict):
-            markup = body.get("markup", {})
-            if isinstance(markup, dict):
-                ad_text = markup.get("__html")
-        elif isinstance(body, str):
-            ad_text = body
-
-    hook_text = first_card.get("title") or snapshot.get("title")
-    cta_type = snapshot.get("ctaText") or first_card.get("ctaText")
-
-    creative_url = (
-        first_card.get("resizedImageUrl")
-        or first_card.get("originalImageUrl")
-        or first_card.get("videoPreviewImageUrl")
-    )
-    if not creative_url:
-        images = snapshot.get("images", [])
-        if images and isinstance(images[0], dict):
-            creative_url = images[0].get("resizedImageUrl")
-
-    offer_text = first_card.get("linkDescription")
-
-    platforms = raw.get("publisherPlatform", [])
-    platform_str = ", ".join(platforms) if platforms else None
-
-    return {
-        "creative_url": creative_url,
-        "ad_text": ad_text,
-        "hook_text": hook_text,
-        "offer_text": offer_text,
-        "cta_type": cta_type,
-        "estimated_spend_range": None,
-        "impression_range": None,
-        "hook_type": platform_str,
-    }

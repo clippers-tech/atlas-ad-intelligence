@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -33,6 +33,12 @@ class CompetitorConfigCreate(BaseModel):
     competitor_name: str
     meta_page_id: Optional[str] = None
     website_url: Optional[str] = None
+    # Apify scraper config
+    facebook_url: Optional[str] = None
+    scraper_country: str = "ALL"
+    scraper_media_type: str = "all"
+    scraper_platforms: str = "facebook,instagram"
+    scraper_language: str = "en"
 
 
 class CompetitorConfigResponse(BaseModel):
@@ -43,6 +49,13 @@ class CompetitorConfigResponse(BaseModel):
     competitor_name: str
     meta_page_id: Optional[str] = None
     website_url: Optional[str] = None
+    # Apify scraper config
+    facebook_url: Optional[str] = None
+    scraper_country: str = "ALL"
+    scraper_media_type: str = "all"
+    scraper_platforms: str = "facebook,instagram"
+    scraper_language: str = "en"
+
     is_active: bool = True
     created_at: datetime
     updated_at: datetime

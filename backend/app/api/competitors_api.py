@@ -143,6 +143,11 @@ async def add_competitor(
         competitor_name=payload.competitor_name,
         meta_page_id=payload.meta_page_id,
         website_url=payload.website_url,
+        facebook_url=payload.facebook_url,
+        scraper_country=payload.scraper_country,
+        scraper_media_type=payload.scraper_media_type,
+        scraper_platforms=payload.scraper_platforms,
+        scraper_language=payload.scraper_language,
         is_active=True,
     )
     db.add(config)

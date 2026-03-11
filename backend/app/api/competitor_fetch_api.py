@@ -85,8 +85,12 @@ async def start_competitor_fetch(
 
     try:
         run_info = await start_run(
-            page_id=config.meta_page_id,  # type: ignore
-            country=country,
+            page_id=config.meta_page_id,
+            facebook_url=config.facebook_url,
+            country=config.scraper_country or country,
+            media_type=config.scraper_media_type or "all",
+            platforms=config.scraper_platforms or "facebook,instagram",
+            language=config.scraper_language or "en",
             max_ads=max_ads,
         )
     except ApifyScraperError as exc:
@@ -205,8 +209,12 @@ async def start_all_competitor_fetches(
     for config in configs:
         try:
             run_info = await start_run(
-                page_id=config.meta_page_id,  # type: ignore
-                country=country,
+                page_id=config.meta_page_id,
+                facebook_url=config.facebook_url,
+                country=config.scraper_country or country,
+                media_type=config.scraper_media_type or "all",
+                platforms=config.scraper_platforms or "facebook,instagram",
+                language=config.scraper_language or "en",
                 max_ads=max_ads,
             )
             total_cost += run_info["estimated_cost"]

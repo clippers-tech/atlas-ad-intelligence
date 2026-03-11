@@ -109,6 +109,13 @@ export interface Competitor {
   competitor_name: string;
   meta_page_id: string | null;
   website_url: string | null;
+  // Apify scraper config
+  facebook_url: string | null;
+  scraper_country: string;
+  scraper_media_type: string;
+  scraper_platforms: string;
+  scraper_language: string;
+
   is_active: boolean;
   total_ads: number;
   ads: CompetitorAd[];
