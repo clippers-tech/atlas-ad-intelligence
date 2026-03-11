@@ -10,8 +10,10 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.models.account import Account
 from app.models.rule import Rule
 from app.schemas.rule_schemas import RuleCreate, RuleResponse, RuleUpdate
+from app.services.rules.engine import evaluate_rules_for_account
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -112,6 +114,49 @@ async def update_rule(
     await db.refresh(rule)
     logger.info("Updated rule id=%s", rule_id)
     return RuleResponse.model_validate(rule).model_dump()
+
+
+@router.post("/evaluate")
+async def evaluate_rules(
+    account_id: UUID | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Run rule evaluation for one or all accounts.
+
+    If account_id is provided, evaluates only that account.
+    Otherwise evaluates all active accounts.
+    """
+    if account_id:
+        acct = await db.get(Account, account_id)
+        if not acct:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
+        accounts = [acct]
+    else:
+        result = await db.execute(
+            select(Account).where(Account.is_active.is_(True))
+        )
+        accounts = list(result.scalars().all())
+
+    all_actions: list[dict] = []
+    errors: list[dict] = []
+
+    for acct in accounts:
+        try:
+            actions = await evaluate_rules_for_account(db, acct.id)
+            all_actions.extend(actions)
+        except Exception as exc:
+            logger.error("evaluate: failed for %s — %s", acct.name, exc)
+            errors.append({"account": acct.name, "error": str(exc)})
+
+    await db.commit()
+    return {
+        "data": {
+            "actions_taken": all_actions,
+            "total_actions": len(all_actions),
+            "accounts_evaluated": len(accounts),
+            "errors": errors,
+        }
+    }
 
 
 @router.delete("/{rule_id}", status_code=status.HTTP_200_OK)
