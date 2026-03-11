@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     meta_ad_account_ids: str = ""  # Comma-separated
     meta_ad_library_token: str = ""  # For Ad Library API
 
-
+    # Apify
+    apify_api_token: str = ""  # For Facebook Ads scraper
 
     # Telegram
     telegram_bot_token: str = ""
