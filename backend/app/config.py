@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     # Apify
     apify_api_token: str = ""  # For Facebook Ads scraper
+    apify_default_ads: int = 10  # Default ads per fetch
+    apify_max_ads_per_fetch: int = 50  # Hard ceiling per single fetch
+    apify_cost_per_ad: float = 0.005  # ~$5 per 1000 results
 
     # Telegram
     telegram_bot_token: str = ""

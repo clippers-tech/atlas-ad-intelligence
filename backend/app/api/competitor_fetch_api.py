@@ -1,8 +1,13 @@
 """Competitor fetch API — Apify Ad Library scraper integration.
 
 Two-phase async flow:
-1. POST /{id}/fetch — starts Apify run, returns run_id immediately
+1. POST /{id}/fetch — starts Apify run, returns run_id + cost estimate
 2. GET /{id}/fetch-status?run_id=X — checks if done, ingests results
+
+Guardrails:
+- max_ads capped by APIFY_MAX_ADS_PER_FETCH (env config, default 50)
+- Default fetch size: APIFY_DEFAULT_ADS (env config, default 10)
+- Cost estimate returned on every start
 """
 
 import logging
@@ -12,11 +17,13 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.database import get_db
 from app.models.competitor_config import CompetitorConfig
 from app.services.competitor.apify_scraper import (
     ApifyScraperError,
     check_run_status,
+    estimate_cost,
     get_run_results,
     start_run,
 )
@@ -24,6 +31,10 @@ from app.services.competitor.scraper import ingest_competitor_ads
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# Hard max comes from config — API param cannot exceed it
+_HARD_MAX = settings.apify_max_ads_per_fetch
+_DEFAULT = settings.apify_default_ads
 
 
 async def _get_config(
@@ -56,13 +67,19 @@ async def start_competitor_fetch(
     competitor_id: UUID,
     account_id: UUID = Query(...),
     country: str = Query("ALL"),
-    max_ads: int = Query(50, ge=1, le=200),
+    max_ads: int = Query(
+        _DEFAULT, ge=1, le=_HARD_MAX,
+        description=(
+            f"Max ads to fetch. Default {_DEFAULT}, "
+            f"hard limit {_HARD_MAX}."
+        ),
+    ),
     db: AsyncSession = Depends(get_db),
 ):
     """Start an Apify scraper run for a competitor's ads.
 
-    Returns immediately with run_id. Poll /fetch-status to check
-    when results are ready.
+    Returns immediately with run_id and cost estimate.
+    Poll /fetch-status to check when results are ready.
     """
     config = await _get_config(competitor_id, account_id, db)
 
@@ -82,7 +99,14 @@ async def start_competitor_fetch(
         "status": "started",
         "run_id": run_info["run_id"],
         "dataset_id": run_info["dataset_id"],
-        "message": "Scraper started. Poll /fetch-status to check progress.",
+        "results_limit": run_info["results_limit"],
+        "estimated_cost": run_info["estimated_cost"],
+        "message": (
+            f"Scraper started — fetching up to "
+            f"{run_info['results_limit']} ads "
+            f"(~${run_info['estimated_cost']:.3f}). "
+            f"Poll /fetch-status to check progress."
+        ),
     }
 
 
@@ -91,10 +115,10 @@ async def check_competitor_fetch(
     competitor_id: UUID,
     run_id: str = Query(...),
     account_id: UUID = Query(...),
-    max_ads: int = Query(50, ge=1, le=200),
+    max_ads: int = Query(_DEFAULT, ge=1, le=_HARD_MAX),
     db: AsyncSession = Depends(get_db),
 ):
-    """Check Apify run status. If SUCCEEDED, ingest ads automatically."""
+    """Check Apify run status. Auto-ingests on SUCCEEDED."""
     config = await _get_config(competitor_id, account_id, db)
 
     try:
@@ -108,15 +132,15 @@ async def check_competitor_fetch(
     run_status = status_info["status"]
     dataset_id = status_info.get("dataset_id", "")
 
-    # If still running, return status only
     if run_status in ("RUNNING", "READY"):
         return {"status": "running", "run_id": run_id}
 
-    # If failed, return error
     if run_status in ("FAILED", "ABORTED", "TIMED-OUT"):
-        return {"status": "failed", "run_id": run_id, "error": run_status}
+        return {
+            "status": "failed", "run_id": run_id,
+            "error": run_status,
+        }
 
-    # SUCCEEDED — fetch and ingest results
     if run_status == "SUCCEEDED" and dataset_id:
         try:
             ads_data = await get_run_results(dataset_id, max_ads)
@@ -150,10 +174,13 @@ async def check_competitor_fetch(
 async def start_all_competitor_fetches(
     account_id: UUID = Query(...),
     country: str = Query("ALL"),
-    max_ads: int = Query(50, ge=1, le=200),
+    max_ads: int = Query(_DEFAULT, ge=1, le=_HARD_MAX),
     db: AsyncSession = Depends(get_db),
 ):
-    """Start Apify runs for ALL competitors with a page ID."""
+    """Start Apify runs for ALL active competitors with a page ID.
+
+    Returns cost estimate for the batch.
+    """
     configs = (
         await db.execute(
             select(CompetitorConfig).where(
@@ -166,8 +193,14 @@ async def start_all_competitor_fetches(
     ).scalars().all()
 
     if not configs:
-        return {"status": "ok", "message": "No competitors with Page IDs.", "runs": []}
+        return {
+            "status": "ok",
+            "message": "No competitors with Page IDs.",
+            "runs": [],
+            "total_estimated_cost": 0,
+        }
 
+    total_cost = 0.0
     runs = []
     for config in configs:
         try:
@@ -176,6 +209,7 @@ async def start_all_competitor_fetches(
                 country=country,
                 max_ads=max_ads,
             )
+            total_cost += run_info["estimated_cost"]
             runs.append({
                 "competitor_id": str(config.id),
                 "competitor_name": config.competitor_name,
@@ -190,4 +224,19 @@ async def start_all_competitor_fetches(
                 "error": str(exc),
             })
 
-    return {"status": "ok", "runs": runs}
+    return {
+        "status": "ok",
+        "runs": runs,
+        "total_estimated_cost": round(total_cost, 4),
+    }
+
+
+@router.get("/limits")
+async def get_fetch_limits():
+    """Return current Apify fetch limits and pricing info."""
+    return {
+        "default_ads_per_fetch": _DEFAULT,
+        "max_ads_per_fetch": _HARD_MAX,
+        "cost_per_ad": settings.apify_cost_per_ad,
+        "cost_per_1000": round(settings.apify_cost_per_ad * 1000, 2),
+    }
