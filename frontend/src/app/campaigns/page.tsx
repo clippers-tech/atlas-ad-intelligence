@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
@@ -15,6 +16,13 @@ import {
   formatPercent,
 } from "@/lib/utils";
 import type { Campaign } from "@/lib/types";
+
+type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
+const FILTERS: { label: string; value: StatusFilter }[] = [
+  { label: "All", value: "ALL" },
+  { label: "Active", value: "ACTIVE" },
+  { label: "Paused", value: "PAUSED" },
+];
 
 const COLUMNS = [
   "Campaign",
@@ -35,12 +43,21 @@ const COLUMNS = [
 
 export default function CampaignsPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   const { data, isLoading } = useQuery({
     queryKey: ["campaigns", currentAccount?.id],
     queryFn: () => fetchData<{ data: Campaign[] }>("/campaigns"),
     enabled: !!currentAccount,
   });
+
+  const campaigns = data?.data ?? [];
+  const filtered = useMemo(() => {
+    if (statusFilter === "ALL") return campaigns;
+    return campaigns.filter(
+      (c) => c.status.toUpperCase() === statusFilter
+    );
+  }, [campaigns, statusFilter]);
 
   if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
@@ -51,20 +68,37 @@ export default function CampaignsPage() {
       />
     );
   }
-
   if (isLoading) return <PageLoader />;
-  const campaigns = data?.data ?? [];
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Campaigns"
-        subtitle={`${campaigns.length} campaigns · ${currentAccount.name}`}
+        subtitle={`${filtered.length} of ${campaigns.length} campaigns · ${currentAccount.name}`}
       />
-      {campaigns.length === 0 ? (
+      <div className="flex items-center gap-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setStatusFilter(f.value)}
+            className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
+              statusFilter === f.value
+                ? "bg-[var(--accent)] text-white"
+                : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--text)]"
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+      {filtered.length === 0 ? (
         <EmptyState
           title="No campaigns"
-          description="No campaigns found for this account."
+          description={
+            statusFilter === "ALL"
+              ? "No campaigns found for this account."
+              : `No ${statusFilter.toLowerCase()} campaigns found.`
+          }
         />
       ) : (
         <Card noPadding>
@@ -83,7 +117,7 @@ export default function CampaignsPage() {
                 </tr>
               </thead>
               <tbody>
-                {campaigns.map((c) => (
+                {filtered.map((c) => (
                   <CampaignRow key={c.id} c={c} />
                 ))}
               </tbody>
