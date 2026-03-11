@@ -50,6 +50,45 @@ async def list_schedule_logs(
     }
 
 
+@router.get("/stats")
+async def schedule_stats(
+    db: AsyncSession = Depends(get_db),
+):
+    """Aggregated stats per task name for the automation dashboard."""
+    q = select(
+        ScheduleLog.task_name,
+        sa_func.count(ScheduleLog.id).label("total_runs"),
+        sa_func.count(
+            sa_func.nullif(ScheduleLog.status, "failed")
+        ).label("success_count"),
+        sa_func.max(ScheduleLog.started_at).label("last_run_at"),
+    ).group_by(ScheduleLog.task_name)
+    result = await db.execute(q)
+    rows = result.all()
+
+    # Also get last status per task
+    stats = []
+    for row in rows:
+        last_q = (
+            select(ScheduleLog.status, ScheduleLog.summary)
+            .where(ScheduleLog.task_name == row.task_name)
+            .order_by(ScheduleLog.started_at.desc())
+            .limit(1)
+        )
+        last = (await db.execute(last_q)).first()
+        stats.append({
+            "task_name": row.task_name,
+            "total_runs": row.total_runs,
+            "success_count": row.success_count,
+            "fail_count": row.total_runs - row.success_count,
+            "last_run_at": row.last_run_at.isoformat()
+            if row.last_run_at else None,
+            "last_status": last.status if last else None,
+            "last_summary": last.summary if last else None,
+        })
+    return {"data": stats}
+
+
 @router.post("", status_code=201)
 async def create_schedule_log(
     payload: ScheduleLogCreate,
