@@ -1,4 +1,4 @@
-"""Competitors API — manage competitor watch list and view scraped ads."""
+"""Competitors API — manage watch list, ingest ads, view summaries."""
 
 import logging
 from uuid import UUID
@@ -12,8 +12,14 @@ from app.models.competitor_ad import CompetitorAd
 from app.models.competitor_config import CompetitorConfig
 from app.schemas.competitor_schemas import (
     CompetitorAdResponse,
+    CompetitorAdsIngestRequest,
     CompetitorConfigCreate,
     CompetitorConfigResponse,
+    CompetitorSummaryResponse,
+)
+from app.services.competitor.scraper import (
+    get_competitor_summary,
+    ingest_competitor_ads,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,37 +31,56 @@ async def list_competitors(
     account_id: UUID = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return all competitor configs for an account with their latest ads."""
+    """Return all competitor configs for an account with latest ads."""
     result = await db.execute(
         select(CompetitorConfig)
-        .where(CompetitorConfig.account_id == account_id, CompetitorConfig.is_active == True)
+        .where(
+            CompetitorConfig.account_id == account_id,
+            CompetitorConfig.is_active == True,
+        )
         .order_by(CompetitorConfig.competitor_name)
     )
     configs = result.scalars().all()
 
     data = []
     for config in configs:
-        # Fetch latest 5 ads per competitor
         ads_result = await db.execute(
             select(CompetitorAd)
-            .where(CompetitorAd.competitor_config_id == config.id, CompetitorAd.is_active == True)
+            .where(
+                CompetitorAd.competitor_config_id == config.id,
+                CompetitorAd.is_active == True,
+            )
             .order_by(CompetitorAd.last_seen.desc())
             .limit(5)
         )
         ads = ads_result.scalars().all()
 
         item = CompetitorConfigResponse.model_validate(config).model_dump()
-        item["ads"] = [CompetitorAdResponse.model_validate(a).model_dump() for a in ads]
-        item["total_ads"] = (
+        item["ads"] = [
+            CompetitorAdResponse.model_validate(a).model_dump()
+            for a in ads
+        ]
+        total = (
             await db.execute(
                 select(func.count(CompetitorAd.id)).where(
                     CompetitorAd.competitor_config_id == config.id
                 )
             )
         ).scalar_one() or 0
+        item["total_ads"] = total
         data.append(item)
 
     return {"data": data, "meta": {"total": len(data)}}
+
+
+@router.get("/summary")
+async def competitor_summary(
+    account_id: UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return per-competitor ad counts and date ranges."""
+    summaries = await get_competitor_summary(db, account_id)
+    return {"data": summaries, "meta": {"total": len(summaries)}}
 
 
 @router.get("/{competitor_id}/ads")
@@ -65,12 +90,18 @@ async def list_competitor_ads(
     per_page: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return paginated scraped ads for a specific competitor."""
-    config_result = await db.execute(
-        select(CompetitorConfig).where(CompetitorConfig.id == competitor_id)
-    )
-    if not config_result.scalar_one_or_none():
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Competitor not found.")
+    """Return paginated ads for a specific competitor."""
+    config = (
+        await db.execute(
+            select(CompetitorConfig)
+            .where(CompetitorConfig.id == competitor_id)
+        )
+    ).scalar_one_or_none()
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Competitor not found.",
+        )
 
     count = (
         await db.execute(
@@ -92,7 +123,10 @@ async def list_competitor_ads(
     ).scalars().all()
 
     return {
-        "data": [CompetitorAdResponse.model_validate(a).model_dump() for a in ads],
+        "data": [
+            CompetitorAdResponse.model_validate(a).model_dump()
+            for a in ads
+        ],
         "meta": {"total": count, "page": page, "per_page": per_page},
     }
 
@@ -103,11 +137,7 @@ async def add_competitor(
     account_id: UUID = Query(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Add a new competitor to watch.
-
-    account_id comes from the query string (injected by the frontend
-    interceptor), while the rest of the payload is in the JSON body.
-    """
+    """Add a new competitor to watch."""
     config = CompetitorConfig(
         account_id=account_id,
         competitor_name=payload.competitor_name,
@@ -118,8 +148,43 @@ async def add_competitor(
     db.add(config)
     await db.commit()
     await db.refresh(config)
-    logger.info("Added competitor id=%s name=%s", config.id, config.competitor_name)
+    logger.info(
+        "Added competitor id=%s name=%s", config.id, config.competitor_name
+    )
     return CompetitorConfigResponse.model_validate(config).model_dump()
+
+
+@router.post("/ads", status_code=status.HTTP_201_CREATED)
+async def ingest_ads(
+    payload: CompetitorAdsIngestRequest,
+    account_id: UUID = Query(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ingest competitor ads from external source (Ad Library)."""
+    config = (
+        await db.execute(
+            select(CompetitorConfig).where(
+                CompetitorConfig.id == payload.competitor_config_id,
+                CompetitorConfig.account_id == account_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if not config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Competitor config not found for this account.",
+        )
+
+    ads_data = [ad.model_dump() for ad in payload.ads]
+    result = await ingest_competitor_ads(
+        db, account_id, payload.competitor_config_id, ads_data
+    )
+    logger.info(
+        "Ingested ads for competitor %s: %s",
+        payload.competitor_config_id,
+        result,
+    )
+    return result
 
 
 @router.delete("/{competitor_id}", status_code=status.HTTP_200_OK)
@@ -129,11 +194,15 @@ async def remove_competitor(
 ):
     """Soft-delete a competitor config by marking it inactive."""
     result = await db.execute(
-        select(CompetitorConfig).where(CompetitorConfig.id == competitor_id)
+        select(CompetitorConfig)
+        .where(CompetitorConfig.id == competitor_id)
     )
     config = result.scalar_one_or_none()
     if not config:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Competitor not found.")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Competitor not found.",
+        )
 
     config.is_active = False
     await db.commit()

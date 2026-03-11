@@ -105,28 +105,33 @@ export interface Insight {
 
 export interface Competitor {
   id: string;
-  name: string;
-  domain?: string;
+  account_id: string;
+  competitor_name: string;
   meta_page_id: string | null;
   website_url: string | null;
   is_active: boolean;
-  ad_count?: number;
-  active_ads_count?: number;
-  new_this_week?: number;
-  est_monthly_spend?: string;
-  last_scraped_at?: string;
+  total_ads: number;
+  ads: CompetitorAd[];
+  created_at: string;
+  updated_at: string;
 }
 
 export interface CompetitorAd {
   id: string;
+  competitor_config_id: string;
   creative_url: string | null;
   ad_text: string | null;
   hook_text: string | null;
+  estimated_spend_range: string | null;
+  impression_range: string | null;
   hook_type: string | null;
   cta_type: string | null;
+  offer_text: string | null;
   first_seen: string | null;
   last_seen: string | null;
   is_active: boolean;
+  ai_analysis_json: string | null;
+  created_at: string;
 }
 
 export interface PaginatedResponse<T> {
