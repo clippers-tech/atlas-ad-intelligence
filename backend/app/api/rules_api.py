@@ -78,6 +78,8 @@ async def create_rule(
         is_enabled=payload.is_enabled,
         priority=payload.priority,
         cooldown_minutes=payload.cooldown_minutes,
+        budget_limit=payload.budget_limit,
+        budget_spent=0.0,
     )
     db.add(rule)
     await db.commit()

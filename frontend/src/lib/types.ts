@@ -193,6 +193,8 @@ export interface Rule {
   is_enabled: boolean;
   priority: number;
   cooldown_minutes: number;
+  budget_limit: number | null;
+  budget_spent: number;
   trigger_count?: number;
   estimated_savings?: number;
   last_triggered?: string;

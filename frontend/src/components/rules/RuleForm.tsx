@@ -26,6 +26,9 @@ export default function RuleForm({ initialValues, onSubmit, onCancel }: RuleForm
   );
   const [cooldown, setCooldown] = useState(initialValues?.cooldown_minutes ?? 60);
   const [priority, setPriority] = useState(initialValues?.priority ?? 5);
+  const [budgetLimit, setBudgetLimit] = useState<string>(
+    initialValues?.budget_limit != null ? String(initialValues.budget_limit) : ""
+  );
 
   const percentActions = ["increase_budget", "decrease_budget", "bid_adjust"];
   const showPercent = percentActions.includes(actionType);
@@ -49,6 +52,7 @@ export default function RuleForm({ initialValues, onSubmit, onCancel }: RuleForm
       },
       cooldown_minutes: cooldown,
       priority,
+      budget_limit: budgetLimit ? parseFloat(budgetLimit) : null,
       is_enabled: initialValues?.is_enabled ?? true,
     });
   };
@@ -142,6 +146,22 @@ export default function RuleForm({ initialValues, onSubmit, onCancel }: RuleForm
             <span className="text-gray-500 text-sm">%</span>
           </div>
         )}
+      </div>
+
+      {/* Budget */}
+      <div>
+        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
+          Budget Limit (£) <span className="text-gray-600 font-normal normal-case">— max spend before rule auto-acts</span>
+        </label>
+        <input
+          type="number"
+          value={budgetLimit}
+          onChange={(e) => setBudgetLimit(e.target.value)}
+          placeholder="e.g. 500 (leave empty for no limit)"
+          min={0}
+          step="0.01"
+          className={inputClass}
+        />
       </div>
 
       {/* Cooldown + Priority */}

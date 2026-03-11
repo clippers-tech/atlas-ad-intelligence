@@ -210,6 +210,14 @@ async def evaluate_rules_for_account(
             logger.debug("rules_engine: rule %r is in cooldown — skipping", rule.name)
             continue
 
+        # Budget gate — if rule has a budget and it's exhausted, skip
+        if rule.budget_limit is not None and rule.budget_spent >= rule.budget_limit:
+            logger.info(
+                "rules_engine: rule %r budget exhausted (%.2f/%.2f) — skipping",
+                rule.name, rule.budget_spent, rule.budget_limit,
+            )
+            continue
+
         for ad_id, metric_row in latest_by_ad.items():
             metric_value = _metric_from_row(metric_row, metric_name)
             if metric_value is None:
@@ -225,6 +233,10 @@ async def evaluate_rules_for_account(
             snapshot = {metric_name: metric_value, "ad_id": str(ad_id)}
             action_result = await _dispatch_action(db, rule, ad, action_cfg, snapshot)
             if action_result:
+                # Track spend against the rule's budget
+                ad_spend = getattr(metric_row, "spend", 0.0) or 0.0
+                rule.budget_spent = (rule.budget_spent or 0.0) + ad_spend
+                await db.flush()
                 actions_taken.append(action_result)
                 # Enforce cooldown: once fired, stop evaluating further ads for this rule
                 break

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
@@ -30,6 +30,14 @@ class Rule(Base):
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     cooldown_minutes: Mapped[int] = mapped_column(Integer, default=60)
+    budget_limit: Mapped[float | None] = mapped_column(
+        Float, nullable=True, default=None,
+        comment="Max spend (account currency) before rule auto-acts",
+    )
+    budget_spent: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.0,
+        comment="Spend accumulated against this rule's budget",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
