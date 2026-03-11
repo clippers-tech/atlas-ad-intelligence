@@ -1,8 +1,10 @@
 """Pydantic schemas for schedule log endpoints."""
 
+import uuid
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+
+from pydantic import BaseModel, ConfigDict, field_serializer
 
 
 class ScheduleLogCreate(BaseModel):
@@ -21,7 +23,9 @@ class ScheduleLogUpdate(BaseModel):
 
 
 class ScheduleLogResponse(BaseModel):
-    id: str
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
     task_name: str
     status: str
     source: str
@@ -31,5 +35,6 @@ class ScheduleLogResponse(BaseModel):
     started_at: datetime
     finished_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    @field_serializer("id")
+    def serialize_id(self, v: uuid.UUID) -> str:
+        return str(v)
