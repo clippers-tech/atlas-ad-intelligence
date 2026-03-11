@@ -26,11 +26,24 @@ export interface Campaign {
   status: string;
   daily_budget: number | null;
   lifetime_budget: number | null;
+  // Aggregated from ad_metrics
   spend?: number;
+  impressions?: number;
+  reach?: number;
+  link_clicks?: number;
+  clicks_all?: number;
+  landing_page_views?: number;
+  outbound_clicks?: number;
+  conversions?: number;
   leads?: number;
+  cpm?: number;
+  cpc_link?: number;
+  cpc_all?: number;
+  ctr_link?: number;
+  ctr_all?: number;
+  cost_per_lpv?: number;
   cpl?: number;
-  bookings?: number;
-  revenue?: number;
+  frequency?: number;
   roas?: number;
 }
 
@@ -72,8 +85,17 @@ export interface AdMetric {
 
 export interface DashboardOverview {
   total_spend: number;
+  total_impressions: number;
+  total_reach: number;
+  total_link_clicks: number;
+  total_clicks_all: number;
+  total_landing_page_views: number;
+  total_conversions: number;
   total_leads: number;
   avg_cpl: number;
+  avg_cpm: number;
+  avg_cpc_link: number;
+  ctr_link: number;
   total_bookings: number;
   total_revenue: number;
   true_roas: number;
@@ -88,8 +110,15 @@ export interface CampaignRow {
   name: string;
   status: string;
   spend: number;
+  impressions: number;
+  link_clicks: number;
+  clicks_all: number;
+  landing_page_views: number;
   leads: number;
   cpl: number;
+  cpm: number;
+  ctr_link: number;
+  cpc_link: number;
   bookings: number;
   revenue: number;
   roas: number;

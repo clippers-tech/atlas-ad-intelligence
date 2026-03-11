@@ -1,4 +1,4 @@
-"""Dashboard overview — aggregate metrics across campaigns for a date range."""
+"""Dashboard overview — aggregate metrics for a date range."""
 
 import logging
 from datetime import date
@@ -22,6 +22,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _date_filter(q, col, date_from, date_to):
+    if date_from:
+        q = q.where(col >= date_from)
+    if date_to:
+        q = q.where(col <= date_to)
+    return q
+
+
 @router.get("/overview")
 async def dashboard_overview(
     account_id: UUID = Query(...),
@@ -29,58 +37,54 @@ async def dashboard_overview(
     date_to: Optional[date] = Query(None),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return high-level KPIs and per-campaign breakdown for the given date range."""
+    """High-level KPIs and per-campaign breakdown."""
 
-    # Build base metric query with optional date filters
-    metric_q = select(
-        AdMetric.ad_id,
-        func.sum(AdMetric.spend).label("spend"),
-        func.sum(AdMetric.clicks).label("clicks"),
-        func.sum(AdMetric.conversions).label("conversions"),
+    # Aggregate all ad_metrics for this account + date range
+    base = select(
+        func.coalesce(func.sum(AdMetric.spend), 0),
+        func.coalesce(func.sum(AdMetric.impressions), 0),
+        func.coalesce(func.sum(AdMetric.reach), 0),
+        func.coalesce(func.sum(AdMetric.link_clicks), 0),
+        func.coalesce(func.sum(AdMetric.clicks_all), 0),
+        func.coalesce(func.sum(AdMetric.landing_page_views), 0),
+        func.coalesce(func.sum(AdMetric.conversions), 0),
     ).where(AdMetric.account_id == account_id)
+    base = _date_filter(base, AdMetric.timestamp, date_from, date_to)
 
-    if date_from:
-        metric_q = metric_q.where(AdMetric.timestamp >= date_from)
-    if date_to:
-        metric_q = metric_q.where(AdMetric.timestamp <= date_to)
+    totals = (await db.execute(base)).one()
+    t_spend = float(totals[0])
+    t_imp = int(totals[1])
+    t_reach = int(totals[2])
+    t_lc = int(totals[3])
+    t_ca = int(totals[4])
+    t_lpv = int(totals[5])
+    t_conv = int(totals[6])
 
-    metric_q = metric_q.group_by(AdMetric.ad_id)
-    metrics_result = await db.execute(metric_q)
-    metrics_rows = metrics_result.all()
-
-    total_spend = sum(r.spend for r in metrics_rows)
-    total_clicks = sum(r.clicks for r in metrics_rows)
-
-    # Leads count
-    lead_q = select(func.count(Lead.id)).where(Lead.account_id == account_id)
-    if date_from:
-        lead_q = lead_q.where(Lead.created_at >= date_from)
-    if date_to:
-        lead_q = lead_q.where(Lead.created_at <= date_to)
+    # Leads from leads table
+    lead_q = select(func.count(Lead.id)).where(
+        Lead.account_id == account_id
+    )
+    lead_q = _date_filter(lead_q, Lead.created_at, date_from, date_to)
     total_leads = (await db.execute(lead_q)).scalar_one() or 0
 
-    # Bookings count
-    booking_q = select(func.count(Booking.id)).where(Booking.account_id == account_id)
-    if date_from:
-        booking_q = booking_q.where(Booking.created_at >= date_from)
-    if date_to:
-        booking_q = booking_q.where(Booking.created_at <= date_to)
-    total_bookings = (await db.execute(booking_q)).scalar_one() or 0
+    # Bookings
+    bk_q = select(func.count(Booking.id)).where(
+        Booking.account_id == account_id
+    )
+    bk_q = _date_filter(bk_q, Booking.created_at, date_from, date_to)
+    total_bookings = (await db.execute(bk_q)).scalar_one() or 0
 
-    # Revenue (closed_won deals)
-    revenue_q = select(func.sum(Deal.revenue)).where(
+    # Revenue
+    rev_q = select(func.sum(Deal.revenue)).where(
         Deal.account_id == account_id, Deal.stage == "closed_won"
     )
-    if date_from:
-        revenue_q = revenue_q.where(Deal.closed_at >= date_from)
-    if date_to:
-        revenue_q = revenue_q.where(Deal.closed_at <= date_to)
-    total_revenue = (await db.execute(revenue_q)).scalar_one() or 0.0
+    rev_q = _date_filter(rev_q, Deal.closed_at, date_from, date_to)
+    total_revenue = (await db.execute(rev_q)).scalar_one() or 0.0
 
-    avg_cpl = round(total_spend / total_leads, 2) if total_leads else 0.0
-    true_roas = round(total_revenue / total_spend, 2) if total_spend else 0.0
+    avg_cpl = round(t_spend / total_leads, 2) if total_leads else 0.0
+    true_roas = round(total_revenue / t_spend, 2) if t_spend else 0.0
 
-    # Active / paused ad counts
+    # Ad counts
     active_ads = (
         await db.execute(
             select(func.count(Ad.id)).where(
@@ -88,7 +92,6 @@ async def dashboard_overview(
             )
         )
     ).scalar_one() or 0
-
     paused_ads = (
         await db.execute(
             select(func.count(Ad.id)).where(
@@ -98,80 +101,103 @@ async def dashboard_overview(
     ).scalar_one() or 0
 
     # Per-campaign breakdown
-    campaigns_result = await db.execute(
-        select(Campaign).where(Campaign.account_id == account_id)
+    camps = (
+        await db.execute(
+            select(Campaign).where(Campaign.account_id == account_id)
+        )
+    ).scalars().all()
+    breakdown = await _campaign_breakdown(
+        db, account_id, camps, date_from, date_to
     )
-    campaigns = campaigns_result.scalars().all()
-    campaign_breakdown = []
-    for camp in campaigns:
-        camp_spend = 0.0
-        camp_leads = 0
-        camp_bookings = 0
-        camp_revenue = 0.0
-
-        # Leads attributed to this campaign
-        c_lead_q = select(func.count(Lead.id)).where(
-            Lead.account_id == account_id,
-            Lead.source_campaign_id == camp.id,
-        )
-        if date_from:
-            c_lead_q = c_lead_q.where(Lead.created_at >= date_from)
-        if date_to:
-            c_lead_q = c_lead_q.where(Lead.created_at <= date_to)
-        camp_leads = (await db.execute(c_lead_q)).scalar_one() or 0
-
-        # Spend: sum ad_metrics for all ads in this campaign's ad_sets
-        adset_ids_result = await db.execute(
-            select(AdSet.id).where(AdSet.campaign_id == camp.id)
-        )
-        adset_ids = [r[0] for r in adset_ids_result.all()]
-        if adset_ids:
-            ad_ids_result = await db.execute(
-                select(Ad.id).where(Ad.ad_set_id.in_(adset_ids))
-            )
-            ad_ids = [r[0] for r in ad_ids_result.all()]
-            if ad_ids:
-                camp_spend_q = select(func.sum(AdMetric.spend)).where(
-                    AdMetric.ad_id.in_(ad_ids)
-                )
-                if date_from:
-                    camp_spend_q = camp_spend_q.where(AdMetric.timestamp >= date_from)
-                if date_to:
-                    camp_spend_q = camp_spend_q.where(AdMetric.timestamp <= date_to)
-                camp_spend = (await db.execute(camp_spend_q)).scalar_one() or 0.0
-
-        # Revenue: closed_won deals from leads in this campaign
-        c_rev_q = (
-            select(func.sum(Deal.revenue))
-            .join(Lead, Deal.lead_id == Lead.id)
-            .where(Lead.source_campaign_id == camp.id, Deal.stage == "closed_won")
-        )
-        camp_revenue = (await db.execute(c_rev_q)).scalar_one() or 0.0
-        camp_cpl = round(camp_spend / camp_leads, 2) if camp_leads else 0.0
-        camp_roas = round(camp_revenue / camp_spend, 2) if camp_spend else 0.0
-
-        campaign_breakdown.append({
-            "campaign_id": str(camp.id),
-            "name": camp.name,
-            "status": camp.status,
-            "spend": round(camp_spend, 2),
-            "leads": camp_leads,
-            "cpl": camp_cpl,
-            "bookings": camp_bookings,
-            "revenue": round(camp_revenue, 2),
-            "roas": camp_roas,
-        })
 
     return {
         "data": {
-            "total_spend": round(total_spend, 2),
+            "total_spend": round(t_spend, 2),
+            "total_impressions": t_imp,
+            "total_reach": t_reach,
+            "total_link_clicks": t_lc,
+            "total_clicks_all": t_ca,
+            "total_landing_page_views": t_lpv,
+            "total_conversions": t_conv,
             "total_leads": total_leads,
             "avg_cpl": avg_cpl,
+            "avg_cpm": round(t_spend / t_imp * 1000, 2) if t_imp else 0.0,
+            "avg_cpc_link": round(t_spend / t_lc, 2) if t_lc else 0.0,
+            "ctr_link": round(t_lc / t_imp * 100, 2) if t_imp else 0.0,
             "total_bookings": total_bookings,
             "total_revenue": round(total_revenue, 2),
             "true_roas": true_roas,
             "active_ads_count": active_ads,
             "paused_today_count": paused_ads,
-            "campaigns": campaign_breakdown,
+            "campaigns": breakdown,
         }
     }
+
+
+async def _campaign_breakdown(
+    db, account_id, camps, date_from, date_to
+) -> list[dict]:
+    """Build per-campaign metric rows."""
+    rows = []
+    for camp in camps:
+        adset_ids = [
+            r[0] for r in (
+                await db.execute(
+                    select(AdSet.id).where(
+                        AdSet.campaign_id == camp.id
+                    )
+                )
+            ).all()
+        ]
+        cs, ci, clc, cca, clpv, ccv = 0.0, 0, 0, 0, 0, 0
+        if adset_ids:
+            ad_ids = [
+                r[0] for r in (
+                    await db.execute(
+                        select(Ad.id).where(
+                            Ad.ad_set_id.in_(adset_ids)
+                        )
+                    )
+                ).all()
+            ]
+            if ad_ids:
+                q = select(
+                    func.coalesce(func.sum(AdMetric.spend), 0),
+                    func.coalesce(func.sum(AdMetric.impressions), 0),
+                    func.coalesce(func.sum(AdMetric.link_clicks), 0),
+                    func.coalesce(func.sum(AdMetric.clicks_all), 0),
+                    func.coalesce(
+                        func.sum(AdMetric.landing_page_views), 0
+                    ),
+                    func.coalesce(func.sum(AdMetric.conversions), 0),
+                ).where(AdMetric.ad_id.in_(ad_ids))
+                q = _date_filter(
+                    q, AdMetric.timestamp, date_from, date_to
+                )
+                r = (await db.execute(q)).one()
+                cs = float(r[0])
+                ci = int(r[1])
+                clc = int(r[2])
+                cca = int(r[3])
+                clpv = int(r[4])
+                ccv = int(r[5])
+
+        rows.append({
+            "campaign_id": str(camp.id),
+            "name": camp.name,
+            "status": camp.status,
+            "spend": round(cs, 2),
+            "impressions": ci,
+            "link_clicks": clc,
+            "clicks_all": cca,
+            "landing_page_views": clpv,
+            "leads": ccv,
+            "cpl": round(cs / ccv, 2) if ccv else 0.0,
+            "cpm": round(cs / ci * 1000, 2) if ci else 0.0,
+            "ctr_link": round(clc / ci * 100, 2) if ci else 0.0,
+            "cpc_link": round(cs / clc, 2) if clc else 0.0,
+            "bookings": 0,
+            "revenue": 0.0,
+            "roas": 0.0,
+        })
+    return rows
