@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     meta_app_secret: str = ""
     meta_system_user_token: str = ""
     meta_ad_account_ids: str = ""  # Comma-separated
+    meta_ad_library_token: str = ""  # For Ad Library API
 
 
 
