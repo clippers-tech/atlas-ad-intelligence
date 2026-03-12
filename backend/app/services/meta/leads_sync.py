@@ -1,7 +1,11 @@
 """Sync Meta lead form submissions into ATLAS leads table.
 
-Fetches lead data from Meta's Leadgen API at the ad-account level,
-creates Lead records with full attribution (campaign → adset → ad).
+Two approaches supported:
+1. Page-based: /{page_id}/leadgen_forms -> /{form_id}/leads
+   (requires page access token or system user with leads_retrieval)
+2. Ad-based fallback: /{ad_id}/leads
+   (works with ad account system user token)
+
 Deduplicates on meta_lead_id.
 """
 
@@ -154,17 +158,77 @@ async def _upsert_lead(
     return True
 
 
+async def _sync_via_ads(
+    db: AsyncSession,
+    account_id: uuid.UUID,
+    meta_ad_account_id: str,
+) -> dict:
+    """Pull leads by iterating ads with the /leads edge."""
+    new_count = 0
+    skipped = 0
+    errors = []
+    ads_checked = 0
+
+    # Get all ads for this account from our DB
+    ad_rows = await db.execute(
+        select(Ad).where(Ad.account_id == account_id)
+    )
+    ads = ad_rows.scalars().all()
+
+    for ad in ads:
+        meta_ad_id = ad.meta_ad_id
+        if not meta_ad_id:
+            continue
+        ads_checked += 1
+        try:
+            async for page in meta_client.paginate(
+                f"/{meta_ad_id}/leads",
+                params={
+                    "fields": _LEAD_FIELDS,
+                    "limit": 500,
+                },
+            ):
+                for raw_lead in page.get("data", []):
+                    is_new = await _upsert_lead(
+                        db, account_id, raw_lead
+                    )
+                    if is_new:
+                        new_count += 1
+                    else:
+                        skipped += 1
+                await db.flush()
+        except Exception as exc:
+            err_msg = str(exc)
+            # Skip 400s for ads that don't have lead forms
+            if "400" in err_msg or "nonexisting" in err_msg:
+                continue
+            logger.warning(
+                "leads_sync: ad %s failed — %s",
+                meta_ad_id, exc,
+            )
+            errors.append({
+                "ad_id": meta_ad_id,
+                "error": err_msg,
+            })
+
+    return {
+        "method": "ad_based",
+        "ads_checked": ads_checked,
+        "new_leads": new_count,
+        "skipped_existing": skipped,
+        "errors": errors,
+    }
+
+
 async def sync_leads(
     db: AsyncSession,
     account_id: uuid.UUID,
     meta_ad_account_id: str,
     days_back: int = 90,
 ) -> dict:
-    """Pull leads from Meta Leadgen API for one account.
+    """Pull leads from Meta for one account.
 
-    Uses /{ad_account_id}/leadgen_forms to list forms, then
-    /{form_id}/leads to get actual lead data.
-
+    Uses ad-based approach: iterate ads -> /{ad_id}/leads.
     Returns dict with counts.
     """
     logger.info(
@@ -172,72 +236,10 @@ async def sync_leads(
         meta_ad_account_id, days_back,
     )
 
-    new_count = 0
-    skipped = 0
-    form_count = 0
-    errors = []
-
-    try:
-        # Step 1: Get all lead gen forms for this account
-        async for form_page in meta_client.paginate(
-            f"/{meta_ad_account_id}/leadgen_forms",
-            params={"fields": "id,name,status", "limit": 100},
-        ):
-            for form in form_page.get("data", []):
-                form_id = form.get("id")
-                form_name = form.get("name", "?")
-                form_count += 1
-
-                logger.info(
-                    "leads_sync: processing form %s (%s)",
-                    form_id, form_name,
-                )
-
-                # Step 2: Get leads for this form
-                try:
-                    async for lead_page in meta_client.paginate(
-                        f"/{form_id}/leads",
-                        params={
-                            "fields": _LEAD_FIELDS,
-                            "limit": 500,
-                        },
-                    ):
-                        for raw_lead in lead_page.get("data", []):
-                            is_new = await _upsert_lead(
-                                db, account_id, raw_lead
-                            )
-                            if is_new:
-                                new_count += 1
-                            else:
-                                skipped += 1
-
-                        await db.flush()
-
-                except Exception as exc:
-                    logger.warning(
-                        "leads_sync: form %s failed — %s",
-                        form_id, exc,
-                    )
-                    errors.append({
-                        "form_id": form_id,
-                        "form_name": form_name,
-                        "error": str(exc),
-                    })
-
-    except Exception as exc:
-        logger.error(
-            "leads_sync: failed listing forms for %s — %s",
-            meta_ad_account_id, exc,
-        )
-        errors.append({"error": str(exc)})
+    result = await _sync_via_ads(
+        db, account_id, meta_ad_account_id,
+    )
 
     await db.commit()
-
-    result = {
-        "forms_scanned": form_count,
-        "new_leads": new_count,
-        "skipped_existing": skipped,
-        "errors": errors,
-    }
     logger.info("leads_sync: done — %s", result)
     return result
