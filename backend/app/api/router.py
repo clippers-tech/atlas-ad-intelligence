@@ -22,6 +22,7 @@ from app.api.campaigns_api import router as campaigns_router
 from app.api.adsets_api import router as adsets_router
 from app.api.ads_api import router as ads_router
 from app.api.insights_api import router as insights_router
+from app.api.insights_trigger_api import router as insights_trigger_router
 from app.api.creatives_api import router as creatives_router
 from app.api.schedules_api import router as schedules_router
 from app.api.sync_api import router as sync_router
@@ -48,6 +49,7 @@ master_router.include_router(campaigns_router, prefix="/campaigns", tags=["Campa
 master_router.include_router(adsets_router, prefix="/ad-sets", tags=["Ad Sets"])
 master_router.include_router(ads_router, prefix="/ads", tags=["Ads"])
 master_router.include_router(insights_router, prefix="/insights", tags=["Insights"])
+master_router.include_router(insights_trigger_router, prefix="/insights", tags=["Insights"])
 master_router.include_router(creatives_router, prefix="/creatives", tags=["Creatives"])
 master_router.include_router(schedules_router, prefix="/schedules", tags=["Schedules"])
 master_router.include_router(sync_router, tags=["Sync"])
