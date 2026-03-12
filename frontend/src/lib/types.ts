@@ -103,6 +103,7 @@ export interface DashboardOverview {
   total_landing_page_views: number;
   total_conversions: number;
   total_leads: number;
+  effective_leads: number;
   avg_cpl: number;
   avg_cpm: number;
   avg_cpc_link: number;

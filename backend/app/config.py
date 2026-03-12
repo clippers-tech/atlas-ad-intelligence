@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     meta_system_user_token: str = ""
     meta_ad_account_ids: str = ""  # Comma-separated
     meta_ad_library_token: str = ""  # For Ad Library API
+    meta_webhook_verify_token: str = "atlas_leadgen_2026"
 
     # Apify
     apify_api_token: str = ""  # For Facebook Ads scraper

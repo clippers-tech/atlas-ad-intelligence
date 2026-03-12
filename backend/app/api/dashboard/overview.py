@@ -81,7 +81,13 @@ async def dashboard_overview(
     rev_q = _date_filter(rev_q, Deal.closed_at, date_from, date_to)
     total_revenue = (await db.execute(rev_q)).scalar_one() or 0.0
 
-    avg_cpl = round(t_spend / total_leads, 2) if total_leads else 0.0
+    # Best available lead count: use DB leads if synced,
+    # otherwise fall back to Meta conversion metrics
+    effective_leads = max(total_leads, t_conv)
+    avg_cpl = (
+        round(t_spend / effective_leads, 2)
+        if effective_leads else 0.0
+    )
     true_roas = round(total_revenue / t_spend, 2) if t_spend else 0.0
 
     # Ad counts
@@ -120,6 +126,7 @@ async def dashboard_overview(
             "total_landing_page_views": t_lpv,
             "total_conversions": t_conv,
             "total_leads": total_leads,
+            "effective_leads": effective_leads,
             "avg_cpl": avg_cpl,
             "avg_cpm": round(t_spend / t_imp * 1000, 2) if t_imp else 0.0,
             "avg_cpc_link": round(t_spend / t_lc, 2) if t_lc else 0.0,

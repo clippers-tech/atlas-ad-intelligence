@@ -18,6 +18,7 @@ from app.api.dashboard.audience_heatmap import router as dashboard_audiences_rou
 from app.api.dashboard.funnel import router as dashboard_funnel_router
 from app.api.dashboard.anomaly_timeline import router as dashboard_anomalies_router
 from app.api.webhooks.landing_page_webhook import router as landing_page_router
+from app.api.webhooks.meta_leadgen_webhook import router as meta_leadgen_router
 from app.api.campaigns_api import router as campaigns_router
 from app.api.adsets_api import router as adsets_router
 from app.api.ads_api import router as ads_router
@@ -45,6 +46,7 @@ master_router.include_router(dashboard_audiences_router, prefix="/dashboard", ta
 master_router.include_router(dashboard_funnel_router, prefix="/dashboard", tags=["Dashboard"])
 master_router.include_router(dashboard_anomalies_router, prefix="/dashboard", tags=["Dashboard"])
 master_router.include_router(landing_page_router, prefix="/webhooks", tags=["Webhooks"])
+master_router.include_router(meta_leadgen_router, prefix="/webhooks", tags=["Webhooks"])
 master_router.include_router(campaigns_router, prefix="/campaigns", tags=["Campaigns"])
 master_router.include_router(adsets_router, prefix="/ad-sets", tags=["Ad Sets"])
 master_router.include_router(ads_router, prefix="/ads", tags=["Ads"])

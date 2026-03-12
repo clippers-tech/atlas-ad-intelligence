@@ -39,8 +39,12 @@ class LeadResponse(BaseModel):
     source_ad_id: Optional[str] = None
     source_adset_id: Optional[str] = None
     stage: Optional[str] = None
+    # Meta lead form tracking
+    meta_lead_id: Optional[str] = None
+    meta_form_id: Optional[str] = None
+    meta_ad_id: Optional[str] = None
+    meta_created_at: Optional[datetime] = None
     created_at: datetime
-    updated_at: datetime
     bookings: list[Any] = []
     deals: list[Any] = []
 

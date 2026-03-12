@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.account import Account
 from app.services.meta.campaigns_sync import sync_campaigns
 from app.services.meta.metrics_sync import sync_metrics
+from app.services.meta.leads_sync import sync_leads
 from app.utils.circuit_breaker import meta_circuit, CircuitState
 
 logger = logging.getLogger(__name__)
@@ -70,3 +71,56 @@ async def trigger_sync(
             "total_accounts": len(accounts),
         }
     }
+
+
+@router.post("/sync/leads")
+async def trigger_lead_sync(
+    account_id: UUID | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """Pull leads from Meta Leadgen forms."""
+    if account_id:
+        q = await db.execute(
+            select(Account).where(
+                Account.id == account_id,
+                Account.is_active.is_(True),
+            )
+        )
+        accounts = [q.scalar_one_or_none()]
+        if accounts[0] is None:
+            raise HTTPException(
+                status.HTTP_404_NOT_FOUND,
+                "Account not found",
+            )
+    else:
+        result = await db.execute(
+            select(Account).where(
+                Account.is_active.is_(True)
+            )
+        )
+        accounts = list(result.scalars().all())
+
+    results = []
+    for acct in accounts:
+        meta_id = f"act_{acct.meta_ad_account_id}"
+        try:
+            r = await sync_leads(
+                db, acct.id, meta_id,
+            )
+            results.append({
+                "account": acct.name,
+                "status": "ok",
+                **r,
+            })
+        except Exception as exc:
+            logger.error(
+                "lead_sync: failed for %s — %s",
+                acct.name, exc,
+            )
+            results.append({
+                "account": acct.name,
+                "status": "error",
+                "error": str(exc),
+            })
+
+    return {"data": results}
