@@ -17,11 +17,12 @@ interface AdSet {
   status: string;
   campaign_name?: string;
   daily_budget?: number;
-  targeting_summary?: string;
-  spend?: number;
-  leads?: number;
-  cpl?: number;
-  impressions?: number;
+  spend: number;
+  leads: number;
+  cpl: number;
+  impressions: number;
+  link_clicks: number;
+  ctr_link: number;
 }
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
@@ -31,7 +32,10 @@ const FILTERS: { label: string; value: StatusFilter }[] = [
   { label: "Paused", value: "PAUSED" },
 ];
 
-const HEADERS = ["Ad Set", "Campaign", "Status", "Budget", "Spend", "Leads", "CPL", "Impressions"] as const;
+const HEADERS = [
+  "Ad Set", "Campaign", "Status", "Budget",
+  "Spend", "Leads", "CPL", "Impressions",
+] as const;
 
 export default function AdSetsPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
@@ -102,10 +106,10 @@ export default function AdSetsPage() {
                     <td className="px-4 py-3 text-[12px] text-[var(--text-secondary)]">{a.campaign_name || "—"}</td>
                     <td className="px-4 py-3"><StatusBadge label={a.status} variant={getStatusVariant(a.status)} dot /></td>
                     <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{a.daily_budget ? `${formatCurrency(a.daily_budget)}/d` : "—"}</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{a.spend !== undefined ? formatCurrency(a.spend) : "—"}</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{a.leads !== undefined ? formatNumber(a.leads) : "—"}</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{a.cpl !== undefined ? formatCurrencyDecimal(a.cpl) : "—"}</td>
-                    <td className="px-4 py-3 pr-5 text-[13px] tabular-nums text-[var(--text)]">{a.impressions !== undefined ? formatNumber(a.impressions) : "—"}</td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{formatCurrency(a.spend ?? 0)}</td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{formatNumber(a.leads ?? 0)}</td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{a.cpl ? formatCurrencyDecimal(a.cpl) : "—"}</td>
+                    <td className="px-4 py-3 pr-5 text-[13px] tabular-nums text-[var(--text)]">{formatNumber(a.impressions ?? 0)}</td>
                   </tr>
                 ))}
               </tbody>

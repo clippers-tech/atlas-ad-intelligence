@@ -45,7 +45,7 @@ export default function CreativesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  {["Creative", "Type", "Spend", "Impressions", "CTR", "Conversions", "Fatigue"].map((h) => (
+                  {["Creative", "Ad Set", "Type", "Spend", "Impressions", "CTR", "Conversions", "Fatigue"].map((h) => (
                     <th key={h} className="px-4 py-2.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider text-left first:pl-5 last:pr-5">{h}</th>
                   ))}
                 </tr>
@@ -56,13 +56,14 @@ export default function CreativesPage() {
                     <td className="px-4 py-3 pl-5">
                       <div className="flex items-center gap-3">
                         {c.thumbnail_url ? (
-                          <img src={c.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                          <img src={c.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
                         ) : (
-                          <div className="w-10 h-10 rounded-lg bg-[var(--surface-2)]" />
+                          <div className="w-10 h-10 rounded-lg bg-[var(--surface-2)] flex-shrink-0" />
                         )}
                         <span className="text-[13px] font-medium text-[var(--text)] max-w-[200px] truncate">{c.ad_name}</span>
                       </div>
                     </td>
+                    <td className="px-4 py-3 text-[12px] text-[var(--text-secondary)] max-w-[180px] truncate">{c.adset_name || "—"}</td>
                     <td className="px-4 py-3 text-[12px] text-[var(--text-secondary)]">{c.ad_type || "—"}</td>
                     <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{formatCurrency(c.spend)}</td>
                     <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{formatNumber(c.impressions)}</td>

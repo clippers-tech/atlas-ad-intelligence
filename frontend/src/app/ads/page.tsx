@@ -9,6 +9,7 @@ import { Card } from "@/components/common/Card";
 import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageLoader } from "@/components/common/LoadingSpinner";
+import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
 import type { Ad } from "@/lib/types";
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
@@ -85,13 +86,39 @@ export default function AdsPage() {
                 </div>
               )}
               <h4 className="text-[13px] font-medium text-[var(--text)] truncate">{ad.name}</h4>
+              {ad.adset_name && (
+                <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5">{ad.adset_name}</p>
+              )}
               <div className="flex items-center gap-2 mt-2">
                 <StatusBadge label={ad.status} variant={getStatusVariant(ad.status)} dot />
                 <span className="text-[11px] text-[var(--muted)]">{ad.ad_type}</span>
               </div>
-              <p className="text-[11px] text-[var(--muted)] mt-1.5">
-                ID: {ad.meta_ad_id}
-              </p>
+              <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-[var(--border)]/50">
+                <div>
+                  <p className="text-[10px] text-[var(--muted)] uppercase tracking-wide">Spend</p>
+                  <p className="text-[13px] font-medium text-[var(--text)] tabular-nums">{formatCurrency(ad.spend ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[var(--muted)] uppercase tracking-wide">Impr.</p>
+                  <p className="text-[13px] font-medium text-[var(--text)] tabular-nums">{formatNumber(ad.impressions ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[var(--muted)] uppercase tracking-wide">CTR</p>
+                  <p className="text-[13px] font-medium text-[var(--text)] tabular-nums">{formatPercent(ad.ctr_link ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[var(--muted)] uppercase tracking-wide">Leads</p>
+                  <p className="text-[13px] font-medium text-[var(--text)] tabular-nums">{formatNumber(ad.leads ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[var(--muted)] uppercase tracking-wide">CPL</p>
+                  <p className="text-[13px] font-medium text-[var(--text)] tabular-nums">{formatCurrency(ad.cpl ?? 0)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-[var(--muted)] uppercase tracking-wide">Clicks</p>
+                  <p className="text-[13px] font-medium text-[var(--text)] tabular-nums">{formatNumber(ad.link_clicks ?? 0)}</p>
+                </div>
+              </div>
             </Card>
           ))}
         </div>

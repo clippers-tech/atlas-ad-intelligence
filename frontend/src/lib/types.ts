@@ -59,6 +59,17 @@ export interface Ad {
   review_status: string;
   status: string;
   first_active_date: string | null;
+  adset_name?: string;
+  spend?: number;
+  impressions?: number;
+  reach?: number;
+  link_clicks?: number;
+  conversions?: number;
+  leads?: number;
+  cpm?: number;
+  cpc_link?: number;
+  ctr_link?: number;
+  cpl?: number;
 }
 
 export interface AdMetric {
