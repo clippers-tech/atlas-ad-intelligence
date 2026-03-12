@@ -11,7 +11,8 @@ from app.database import get_db
 from app.models.account import Account
 from app.services.meta.campaigns_sync import sync_campaigns
 from app.services.meta.metrics_sync import sync_metrics
-from app.services.meta.leads_sync import sync_leads
+from app.services.meta.leads_page_sync import sync_leads_via_page
+from app.services.meta.page_tokens import refresh_page_tokens
 from app.utils.circuit_breaker import meta_circuit, CircuitState
 
 logger = logging.getLogger(__name__)
@@ -78,7 +79,13 @@ async def trigger_lead_sync(
     account_id: UUID | None = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Pull leads from Meta Leadgen forms."""
+    """Pull leads from Meta Leadgen forms.
+
+    Auto-refreshes page tokens before syncing.
+    """
+    # Refresh page tokens first
+    await refresh_page_tokens(db)
+
     if account_id:
         q = await db.execute(
             select(Account).where(
@@ -102,10 +109,18 @@ async def trigger_lead_sync(
 
     results = []
     for acct in accounts:
-        meta_id = f"act_{acct.meta_ad_account_id}"
+        if not acct.meta_page_id or not acct.meta_page_token:
+            results.append({
+                "account": acct.name,
+                "status": "skipped",
+                "reason": "no page token",
+            })
+            continue
         try:
-            r = await sync_leads(
-                db, acct.id, meta_id,
+            r = await sync_leads_via_page(
+                db, acct.id,
+                acct.meta_page_id,
+                acct.meta_page_token,
             )
             results.append({
                 "account": acct.name,
@@ -114,8 +129,7 @@ async def trigger_lead_sync(
             })
         except Exception as exc:
             logger.error(
-                "lead_sync: failed for %s — %s",
-                acct.name, exc,
+                "lead_sync: %s — %s", acct.name, exc,
             )
             results.append({
                 "account": acct.name,

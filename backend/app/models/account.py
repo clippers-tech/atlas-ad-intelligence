@@ -28,6 +28,12 @@ class Account(Base):
     target_roas: Mapped[float | None] = mapped_column(Float, nullable=True)
     timezone: Mapped[str] = mapped_column(String(50), default="Europe/London")
     currency: Mapped[str] = mapped_column(String(10), default="GBP")
+    meta_page_id: Mapped[str | None] = mapped_column(
+        String(100), nullable=True
+    )
+    meta_page_token: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
     telegram_chat_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True
     )
