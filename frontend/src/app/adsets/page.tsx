@@ -6,8 +6,10 @@ import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useStatusToggle } from "@/hooks/useStatusToggle";
+import { useTableSort } from "@/hooks/useTableSort";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/common/Card";
+import { SortableHeader } from "@/components/common/SortableHeader";
 import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageLoader } from "@/components/common/LoadingSpinner";
@@ -34,10 +36,16 @@ const FILTERS: { label: string; value: StatusFilter }[] = [
   { label: "Paused", value: "PAUSED" },
 ];
 
-const HEADERS = [
-  "Ad Set", "Campaign", "Status", "Budget",
-  "Spend", "Leads", "CPL", "Impressions",
-] as const;
+const COLUMNS: { label: string; key: string }[] = [
+  { label: "Ad Set", key: "name" },
+  { label: "Campaign", key: "campaign_name" },
+  { label: "Status", key: "status" },
+  { label: "Budget", key: "daily_budget" },
+  { label: "Spend", key: "spend" },
+  { label: "Leads", key: "leads" },
+  { label: "CPL", key: "cpl" },
+  { label: "Impressions", key: "impressions" },
+];
 
 export default function AdSetsPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
@@ -59,11 +67,13 @@ export default function AdSetsPage() {
 
   const adsets = data?.data ?? [];
   const filtered = useMemo(() => {
-    const list = statusFilter === "ALL"
-      ? adsets
-      : adsets.filter((a) => a.status.toUpperCase() === statusFilter);
-    return [...list].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
+    if (statusFilter === "ALL") return adsets;
+    return adsets.filter((a) => a.status.toUpperCase() === statusFilter);
   }, [adsets, statusFilter]);
+
+  const { sorted, sort, toggle: toggleSort } = useTableSort(
+    filtered, "spend", "desc"
+  );
 
   if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
@@ -112,18 +122,23 @@ export default function AdSetsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  {HEADERS.map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-2.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider text-left first:pl-5 last:pr-5"
-                    >
-                      {h}
-                    </th>
+                  {COLUMNS.map((col, i) => (
+                    <SortableHeader
+                      key={col.key}
+                      label={col.label}
+                      sortKey={col.key}
+                      activeKey={sort.key}
+                      activeDir={sort.dir}
+                      onSort={toggleSort}
+                      className={
+                        i === 0 ? "pl-5" : i === COLUMNS.length - 1 ? "pr-5" : ""
+                      }
+                    />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((a) => (
+                {sorted.map((a) => (
                   <tr
                     key={a.id}
                     className="border-b border-[var(--border)]/50 hover:bg-[var(--surface-2)] transition-colors"

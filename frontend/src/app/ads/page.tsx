@@ -6,6 +6,7 @@ import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useStatusToggle } from "@/hooks/useStatusToggle";
+import { useTableSort } from "@/hooks/useTableSort";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/common/Card";
 import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
@@ -19,6 +20,15 @@ const FILTERS: { label: string; value: StatusFilter }[] = [
   { label: "All", value: "ALL" },
   { label: "Active", value: "ACTIVE" },
   { label: "Paused", value: "PAUSED" },
+];
+
+const SORT_OPTIONS: { label: string; key: string }[] = [
+  { label: "Spend", key: "spend" },
+  { label: "Impressions", key: "impressions" },
+  { label: "Leads", key: "leads" },
+  { label: "CPL", key: "cpl" },
+  { label: "CTR", key: "ctr_link" },
+  { label: "Clicks", key: "link_clicks" },
 ];
 
 export default function AdsPage() {
@@ -41,11 +51,13 @@ export default function AdsPage() {
 
   const ads = data?.data ?? [];
   const filtered = useMemo(() => {
-    const list = statusFilter === "ALL"
-      ? ads
-      : ads.filter((a) => a.status.toUpperCase() === statusFilter);
-    return [...list].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
+    if (statusFilter === "ALL") return ads;
+    return ads.filter((a) => a.status.toUpperCase() === statusFilter);
   }, [ads, statusFilter]);
+
+  const { sorted, sort, toggle: toggleSort } = useTableSort(
+    filtered, "spend", "desc"
+  );
 
   if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
@@ -64,20 +76,49 @@ export default function AdsPage() {
         title="Ads"
         subtitle={`${filtered.length} of ${ads.length} ads · ${currentAccount.name}`}
       />
-      <div className="flex items-center gap-2">
-        {FILTERS.map((f) => (
-          <button
-            key={f.value}
-            onClick={() => setStatusFilter(f.value)}
-            className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
-              statusFilter === f.value
-                ? "bg-[var(--accent)] text-white"
-                : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--text)]"
-            }`}
-          >
-            {f.label}
-          </button>
-        ))}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {FILTERS.map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setStatusFilter(f.value)}
+              className={`px-3.5 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
+                statusFilter === f.value
+                  ? "bg-[var(--accent)] text-white"
+                  : "bg-[var(--surface-2)] text-[var(--muted)] hover:text-[var(--text)]"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Sort dropdown for card grid */}
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-[var(--muted)] uppercase tracking-wide">
+            Sort by
+          </span>
+          <div className="flex gap-0.5 bg-[var(--surface-2)] rounded-lg p-0.5">
+            {SORT_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                onClick={() => toggleSort(opt.key)}
+                className={`px-2.5 py-1 text-[11px] font-medium rounded-md transition-all duration-150 ${
+                  sort.key === opt.key
+                    ? "bg-amber-500/15 text-amber-400"
+                    : "text-[var(--muted)] hover:text-[var(--text-secondary)]"
+                }`}
+              >
+                {opt.label}
+                {sort.key === opt.key && (
+                  <span className="ml-0.5">
+                    {sort.dir === "desc" ? "↓" : "↑"}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
       {filtered.length === 0 ? (
         <EmptyState
@@ -90,7 +131,7 @@ export default function AdsPage() {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((ad) => (
+          {sorted.map((ad) => (
             <AdCard
               key={ad.id}
               ad={ad}

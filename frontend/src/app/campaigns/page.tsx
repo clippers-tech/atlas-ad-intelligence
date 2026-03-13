@@ -6,8 +6,10 @@ import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
 import { useDateRange } from "@/contexts/DateRangeContext";
 import { useStatusToggle } from "@/hooks/useStatusToggle";
+import { useTableSort } from "@/hooks/useTableSort";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/common/Card";
+import { SortableHeader } from "@/components/common/SortableHeader";
 import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageLoader } from "@/components/common/LoadingSpinner";
@@ -26,11 +28,22 @@ const FILTERS: { label: string; value: StatusFilter }[] = [
   { label: "Paused", value: "PAUSED" },
 ];
 
-const COLUMNS = [
-  "Campaign", "Status", "Spend", "Impressions", "Reach",
-  "CPM", "Link Clicks", "CPC (Link)", "CTR (Link)",
-  "Clicks (All)", "LPV", "Cost / LPV", "Results", "CPL",
-] as const;
+const COLUMNS: { label: string; key: string }[] = [
+  { label: "Campaign", key: "name" },
+  { label: "Status", key: "status" },
+  { label: "Spend", key: "spend" },
+  { label: "Impressions", key: "impressions" },
+  { label: "Reach", key: "reach" },
+  { label: "CPM", key: "cpm" },
+  { label: "Link Clicks", key: "link_clicks" },
+  { label: "CPC (Link)", key: "cpc_link" },
+  { label: "CTR (Link)", key: "ctr_link" },
+  { label: "Clicks (All)", key: "clicks_all" },
+  { label: "LPV", key: "landing_page_views" },
+  { label: "Cost / LPV", key: "cost_per_lpv" },
+  { label: "Results", key: "leads" },
+  { label: "CPL", key: "cpl" },
+];
 
 export default function CampaignsPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
@@ -52,11 +65,15 @@ export default function CampaignsPage() {
 
   const campaigns = data?.data ?? [];
   const filtered = useMemo(() => {
-    const list = statusFilter === "ALL"
-      ? campaigns
-      : campaigns.filter((c) => c.status.toUpperCase() === statusFilter);
-    return [...list].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
+    if (statusFilter === "ALL") return campaigns;
+    return campaigns.filter(
+      (c) => c.status.toUpperCase() === statusFilter
+    );
   }, [campaigns, statusFilter]);
+
+  const { sorted, sort, toggle: toggleSort } = useTableSort(
+    filtered, "spend", "desc"
+  );
 
   if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
@@ -105,18 +122,23 @@ export default function CampaignsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  {COLUMNS.map((h) => (
-                    <th
-                      key={h}
-                      className="px-3 py-2.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider text-left first:pl-5 last:pr-5 whitespace-nowrap"
-                    >
-                      {h}
-                    </th>
+                  {COLUMNS.map((col, i) => (
+                    <SortableHeader
+                      key={col.key}
+                      label={col.label}
+                      sortKey={col.key}
+                      activeKey={sort.key}
+                      activeDir={sort.dir}
+                      onSort={toggleSort}
+                      className={
+                        i === 0 ? "pl-5" : i === COLUMNS.length - 1 ? "pr-5" : ""
+                      }
+                    />
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {sorted.map((c) => (
                   <CampaignRow
                     key={c.id}
                     c={c}
