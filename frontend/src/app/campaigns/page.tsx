@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
+import { useDateRange } from "@/contexts/DateRangeContext";
+import { useStatusToggle } from "@/hooks/useStatusToggle";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/common/Card";
 import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
@@ -25,29 +27,26 @@ const FILTERS: { label: string; value: StatusFilter }[] = [
 ];
 
 const COLUMNS = [
-  "Campaign",
-  "Status",
-  "Spend",
-  "Impressions",
-  "Reach",
-  "CPM",
-  "Link Clicks",
-  "CPC (Link)",
-  "CTR (Link)",
-  "Clicks (All)",
-  "LPV",
-  "Cost / LPV",
-  "Results",
-  "CPL",
+  "Campaign", "Status", "Spend", "Impressions", "Reach",
+  "CPM", "Link Clicks", "CPC (Link)", "CTR (Link)",
+  "Clicks (All)", "LPV", "Cost / LPV", "Results", "CPL",
 ] as const;
 
 export default function CampaignsPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
+  const { dateFrom, dateTo, rangeKey } = useDateRange();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const { toggle, pendingId } = useStatusToggle(
+    "campaigns", ["campaigns", "dashboard"],
+  );
 
   const { data, isLoading } = useQuery({
-    queryKey: ["campaigns", currentAccount?.id],
-    queryFn: () => fetchData<{ data: Campaign[] }>("/campaigns"),
+    queryKey: ["campaigns", currentAccount?.id, rangeKey],
+    queryFn: () =>
+      fetchData<{ data: Campaign[] }>("/campaigns", {
+        date_from: dateFrom,
+        date_to: dateTo,
+      }),
     enabled: !!currentAccount,
   });
 
@@ -118,7 +117,12 @@ export default function CampaignsPage() {
               </thead>
               <tbody>
                 {filtered.map((c) => (
-                  <CampaignRow key={c.id} c={c} />
+                  <CampaignRow
+                    key={c.id}
+                    c={c}
+                    onToggle={() => toggle(c.id, c.status)}
+                    isPending={pendingId === c.id}
+                  />
                 ))}
               </tbody>
             </table>
@@ -129,7 +133,13 @@ export default function CampaignsPage() {
   );
 }
 
-function CampaignRow({ c }: { c: Campaign }) {
+function CampaignRow({
+  c, onToggle, isPending,
+}: {
+  c: Campaign;
+  onToggle: () => void;
+  isPending: boolean;
+}) {
   const cell =
     "px-3 py-3 text-[13px] tabular-nums text-[var(--text)] whitespace-nowrap";
   return (
@@ -147,6 +157,8 @@ function CampaignRow({ c }: { c: Campaign }) {
           label={c.status}
           variant={getStatusVariant(c.status)}
           dot
+          onClick={onToggle}
+          loading={isPending}
         />
       </td>
       <td className={cell}>{val(c.spend, formatCurrency)}</td>

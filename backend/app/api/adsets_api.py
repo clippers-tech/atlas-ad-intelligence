@@ -1,6 +1,8 @@
-"""Ad Sets API — list ad sets with aggregated metrics."""
+"""Ad Sets API — list ad sets with date-filtered metrics."""
 
 import logging
+from datetime import date
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -18,10 +20,22 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _date_filter(q, col, date_from, date_to):
+    """Apply optional date range filter."""
+    if date_from:
+        q = q.where(col >= date_from)
+    if date_to:
+        q = q.where(col <= date_to)
+    return q
+
+
 async def _adset_metrics(
-    db: AsyncSession, adset_id: UUID
+    db: AsyncSession,
+    adset_id: UUID,
+    date_from: Optional[date] = None,
+    date_to: Optional[date] = None,
 ) -> dict:
-    """Aggregate all ad_metrics for an ad set."""
+    """Aggregate ad_metrics for an ad set within date range."""
     empty = {
         "spend": 0.0, "impressions": 0, "reach": 0,
         "link_clicks": 0, "clicks_all": 0,
@@ -42,32 +56,30 @@ async def _adset_metrics(
     if not ad_ids:
         return empty
 
-    row = (
-        await db.execute(
-            select(
-                sa_func.coalesce(sa_func.sum(AdMetric.spend), 0),
-                sa_func.coalesce(
-                    sa_func.sum(AdMetric.impressions), 0
-                ),
-                sa_func.coalesce(sa_func.sum(AdMetric.reach), 0),
-                sa_func.coalesce(
-                    sa_func.sum(AdMetric.link_clicks), 0
-                ),
-                sa_func.coalesce(
-                    sa_func.sum(AdMetric.clicks_all), 0
-                ),
-                sa_func.coalesce(
-                    sa_func.sum(AdMetric.landing_page_views), 0
-                ),
-                sa_func.coalesce(
-                    sa_func.sum(AdMetric.conversions), 0
-                ),
-                sa_func.coalesce(
-                    sa_func.sum(AdMetric.unique_clicks), 0
-                ),
-            ).where(AdMetric.ad_id.in_(ad_ids))
-        )
-    ).one()
+    q = select(
+        sa_func.coalesce(sa_func.sum(AdMetric.spend), 0),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.impressions), 0
+        ),
+        sa_func.coalesce(sa_func.sum(AdMetric.reach), 0),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.link_clicks), 0
+        ),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.clicks_all), 0
+        ),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.landing_page_views), 0
+        ),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.conversions), 0
+        ),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.unique_clicks), 0
+        ),
+    ).where(AdMetric.ad_id.in_(ad_ids))
+    q = _date_filter(q, AdMetric.timestamp, date_from, date_to)
+    row = (await db.execute(q)).one()
 
     s = float(row[0])
     imp = int(row[1])
@@ -100,11 +112,13 @@ async def _adset_metrics(
 @router.get("")
 async def list_ad_sets(
     account_id: str = Query(...),
+    date_from: Optional[date] = Query(None),
+    date_to: Optional[date] = Query(None),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
 ):
-    """List ad sets enriched with aggregated metrics."""
+    """List ad sets enriched with date-filtered metrics."""
     q = (
         select(AdSet)
         .options(selectinload(AdSet.campaign))
@@ -126,7 +140,9 @@ async def list_ad_sets(
 
     data = []
     for r in rows:
-        metrics = await _adset_metrics(db, r.id)
+        metrics = await _adset_metrics(
+            db, r.id, date_from, date_to
+        )
         item = {
             "id": str(r.id),
             "account_id": str(r.account_id),

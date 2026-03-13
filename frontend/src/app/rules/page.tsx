@@ -11,7 +11,7 @@ import { PageLoader } from "@/components/common/LoadingSpinner";
 import type { Rule } from "@/lib/types";
 import { formatCurrency, formatNumber, formatRelative } from "@/lib/utils";
 import RuleForm from "@/components/rules/RuleForm";
-import { postData } from "@/lib/api";
+import { postData, deleteData } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
 
 const typeColors: Record<string, string> = {
@@ -101,6 +101,12 @@ export default function RulesPage() {
               rule={rule}
               isEditing={editingRule?.id === rule.id}
               onEdit={() => handleEdit(rule)}
+              onDelete={async () => {
+                if (!confirm(`Delete rule "${rule.name}"?`)) return;
+                await deleteData(`/rules/${rule.id}`);
+                queryClient.invalidateQueries({ queryKey: ["rules"] });
+                if (editingRule?.id === rule.id) setEditingRule(null);
+              }}
             />
           ))}
         </div>
@@ -109,15 +115,17 @@ export default function RulesPage() {
   );
 }
 
-/** Inline rule card with edit button */
+/** Inline rule card with edit + delete buttons */
 function RuleCardInline({
   rule,
   isEditing,
   onEdit,
+  onDelete,
 }: {
   rule: Rule;
   isEditing: boolean;
   onEdit: () => void;
+  onDelete: () => void;
 }) {
   return (
     <Card
@@ -140,6 +148,12 @@ function RuleCardInline({
             className="px-2 py-1 rounded-md bg-[var(--surface-2)] text-[11px] text-[var(--muted)] hover:text-amber-400 hover:bg-amber-500/10 transition-colors"
           >
             Edit
+          </button>
+          <button
+            onClick={onDelete}
+            className="px-2 py-1 rounded-md bg-[var(--surface-2)] text-[11px] text-[var(--muted)] hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            Delete
           </button>
         </div>
       </div>

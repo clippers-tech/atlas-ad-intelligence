@@ -8,6 +8,8 @@ interface StatusBadgeProps {
   label: string;
   variant?: BadgeVariant;
   dot?: boolean;
+  onClick?: () => void;
+  loading?: boolean;
 }
 
 const variants: Record<BadgeVariant, string> = {
@@ -28,14 +30,27 @@ const dotColors: Record<BadgeVariant, string> = {
   amber: "bg-amber-400",
 };
 
-export function StatusBadge({ label, variant = "muted", dot = false }: StatusBadgeProps) {
+export function StatusBadge({
+  label, variant = "muted", dot = false, onClick, loading,
+}: StatusBadgeProps) {
+  const isClickable = !!onClick && !loading;
   return (
-    <span className={clsx(
-      "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border",
-      variants[variant]
-    )}>
+    <span
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={isClickable ? onClick : undefined}
+      onKeyDown={isClickable ? (e) => {
+        if (e.key === "Enter" || e.key === " ") onClick();
+      } : undefined}
+      className={clsx(
+        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-medium border",
+        variants[variant],
+        isClickable && "cursor-pointer hover:opacity-80 transition-opacity",
+        loading && "opacity-50 cursor-wait",
+      )}
+    >
       {dot && <span className={clsx("w-1.5 h-1.5 rounded-full", dotColors[variant])} />}
-      {label}
+      {loading ? "..." : label}
     </span>
   );
 }

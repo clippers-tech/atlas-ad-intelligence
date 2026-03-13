@@ -4,6 +4,8 @@ import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { fetchData } from "@/lib/api";
 import { useAccountContext } from "@/contexts/AccountContext";
+import { useDateRange } from "@/contexts/DateRangeContext";
+import { useStatusToggle } from "@/hooks/useStatusToggle";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card } from "@/components/common/Card";
 import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
@@ -39,11 +41,19 @@ const HEADERS = [
 
 export default function AdSetsPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
+  const { dateFrom, dateTo, rangeKey } = useDateRange();
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const { toggle, pendingId } = useStatusToggle(
+    "ad-sets", ["adsets", "dashboard"],
+  );
 
   const { data, isLoading } = useQuery({
-    queryKey: ["adsets", currentAccount?.id],
-    queryFn: () => fetchData<{ data: AdSet[] }>("/ad-sets"),
+    queryKey: ["adsets", currentAccount?.id, rangeKey],
+    queryFn: () =>
+      fetchData<{ data: AdSet[] }>("/ad-sets", {
+        date_from: dateFrom,
+        date_to: dateTo,
+      }),
     enabled: !!currentAccount,
   });
 
@@ -55,13 +65,21 @@ export default function AdSetsPage() {
 
   if (accountLoading) return <PageLoader />;
   if (!currentAccount) {
-    return <EmptyState title="No account selected" description="Select an account to view ad sets." />;
+    return (
+      <EmptyState
+        title="No account selected"
+        description="Select an account to view ad sets."
+      />
+    );
   }
   if (isLoading) return <PageLoader />;
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader title="Ad Sets" subtitle={`${filtered.length} of ${adsets.length} ad sets · ${currentAccount.name}`} />
+      <PageHeader
+        title="Ad Sets"
+        subtitle={`${filtered.length} of ${adsets.length} ad sets · ${currentAccount.name}`}
+      />
       <div className="flex items-center gap-2">
         {FILTERS.map((f) => (
           <button
@@ -93,23 +111,53 @@ export default function AdSetsPage() {
               <thead>
                 <tr className="border-b border-[var(--border)]">
                   {HEADERS.map((h) => (
-                    <th key={h} className="px-4 py-2.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider text-left first:pl-5 last:pr-5">{h}</th>
+                    <th
+                      key={h}
+                      className="px-4 py-2.5 text-[11px] font-semibold text-[var(--muted)] uppercase tracking-wider text-left first:pl-5 last:pr-5"
+                    >
+                      {h}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((a) => (
-                  <tr key={a.id} className="border-b border-[var(--border)]/50 hover:bg-[var(--surface-2)] transition-colors">
+                  <tr
+                    key={a.id}
+                    className="border-b border-[var(--border)]/50 hover:bg-[var(--surface-2)] transition-colors"
+                  >
                     <td className="px-4 py-3 pl-5">
-                      <span className="text-[13px] font-medium text-[var(--text)]">{a.name}</span>
+                      <span className="text-[13px] font-medium text-[var(--text)]">
+                        {a.name}
+                      </span>
                     </td>
-                    <td className="px-4 py-3 text-[12px] text-[var(--text-secondary)]">{a.campaign_name || "—"}</td>
-                    <td className="px-4 py-3"><StatusBadge label={a.status} variant={getStatusVariant(a.status)} dot /></td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{a.daily_budget ? `${formatCurrency(a.daily_budget)}/d` : "—"}</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{formatCurrency(a.spend ?? 0)}</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{formatNumber(a.leads ?? 0)}</td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">{a.cpl ? formatCurrencyDecimal(a.cpl) : "—"}</td>
-                    <td className="px-4 py-3 pr-5 text-[13px] tabular-nums text-[var(--text)]">{formatNumber(a.impressions ?? 0)}</td>
+                    <td className="px-4 py-3 text-[12px] text-[var(--text-secondary)]">
+                      {a.campaign_name || "—"}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge
+                        label={a.status}
+                        variant={getStatusVariant(a.status)}
+                        dot
+                        onClick={() => toggle(a.id, a.status)}
+                        loading={pendingId === a.id}
+                      />
+                    </td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
+                      {a.daily_budget ? `${formatCurrency(a.daily_budget)}/d` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
+                      {formatCurrency(a.spend ?? 0)}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
+                      {formatNumber(a.leads ?? 0)}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
+                      {a.cpl ? formatCurrencyDecimal(a.cpl) : "—"}
+                    </td>
+                    <td className="px-4 py-3 pr-5 text-[13px] tabular-nums text-[var(--text)]">
+                      {formatNumber(a.impressions ?? 0)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
