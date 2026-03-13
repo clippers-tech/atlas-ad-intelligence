@@ -19,9 +19,12 @@ export default function RuleForm({ initialValues, onSubmit, onCancel }: RuleForm
   const [name, setName] = useState(initialValues?.name ?? "");
   const [type, setType] = useState<Rule["type"]>(initialValues?.type ?? "kill");
   const [description, setDescription] = useState(initialValues?.description ?? "");
-  const [conditions, setConditions] = useState<RuleCondition[]>([
-    initialValues?.condition_json ?? { metric: "spend", operator: ">", value: 50 },
-  ]);
+  const [conditions, setConditions] = useState<RuleCondition[]>(() => {
+    if (!initialValues?.condition_json) return [{ metric: "spend", operator: ">", value: 50 }];
+    const root = initialValues.condition_json;
+    const { and: andConds, or: _or, ...primary } = root;
+    return [primary as RuleCondition, ...(andConds ?? [])];
+  });
   const [actionType, setActionType] = useState(
     initialValues?.action_json?.action ?? "pause"
   );

@@ -13,22 +13,22 @@ export const NAV_ITEMS = [
 export const RULE_TYPES = [
   { value: "kill", label: "Kill", color: "red" },
   { value: "scale", label: "Scale", color: "green" },
-  { value: "launch", label: "Launch", color: "blue" },
-  { value: "bid", label: "Bid", color: "amber" },
+  { value: "alert", label: "Alert", color: "amber" },
 ] as const;
 
 export const ACTION_TYPES = [
-  { value: "pause", label: "Pause" },
-  { value: "resume", label: "Resume" },
-  { value: "increase_budget", label: "Increase Budget" },
-  { value: "decrease_budget", label: "Decrease Budget" },
-  { value: "duplicate", label: "Duplicate" },
-  { value: "bid_adjust", label: "Bid Adjust" },
+  { value: "pause", label: "Pause", icon: "⏸" },
+  { value: "resume", label: "Resume", icon: "▶" },
+  { value: "increase_budget", label: "Increase Budget", icon: "📈" },
+  { value: "decrease_budget", label: "Decrease Budget", icon: "📉" },
+  { value: "notify", label: "Notify / Alert", icon: "🔔" },
 ] as const;
 
 export const METRICS = [
-  "spend", "conversions", "cpl", "cpa", "ctr", "frequency",
-  "roas", "cpc", "cpm", "impressions",
+  "spend", "conversions", "cpl", "cpa", "ctr_link", "ctr_all",
+  "frequency", "roas", "cpc_link", "cpc_all", "cpm",
+  "impressions", "reach", "link_clicks", "clicks_all",
+  "landing_page_views", "video_view_3s_rate",
 ] as const;
 
 export const OPERATORS = [">", "<", ">=", "<=", "=="] as const;

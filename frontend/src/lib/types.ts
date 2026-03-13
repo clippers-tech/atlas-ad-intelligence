@@ -199,7 +199,7 @@ export interface Rule {
   account_id: string;
   name: string;
   description: string | null;
-  type: "kill" | "scale" | "launch" | "bid";
+  type: "kill" | "scale" | "alert";
   condition_json: RuleCondition;
   action_json: RuleAction;
   is_enabled: boolean;

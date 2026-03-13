@@ -17,8 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 const typeColors: Record<string, string> = {
   kill: "danger",
   scale: "success",
-  launch: "info",
-  bid: "amber",
+  alert: "amber",
 };
 
 export default function RulesPage() {
