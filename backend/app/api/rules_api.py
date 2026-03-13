@@ -164,13 +164,13 @@ async def delete_rule(
     rule_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """Soft-delete a rule by disabling it."""
+    """Permanently delete a rule."""
     result = await db.execute(select(Rule).where(Rule.id == rule_id))
     rule = result.scalar_one_or_none()
     if not rule:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rule not found.")
 
-    rule.is_enabled = False
+    await db.delete(rule)
     await db.commit()
-    logger.info("Soft-deleted (disabled) rule id=%s", rule_id)
-    return {"status": "ok", "rule_id": str(rule_id), "is_enabled": False}
+    logger.info("Deleted rule id=%s name=%s", rule_id, rule.name)
+    return {"status": "deleted", "rule_id": str(rule_id)}
