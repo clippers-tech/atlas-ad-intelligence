@@ -3,7 +3,6 @@ export const NAV_ITEMS = [
   { label: "Campaigns", href: "/campaigns", icon: "campaigns" },
   { label: "Ad Sets", href: "/adsets", icon: "adsets" },
   { label: "Ads", href: "/ads", icon: "ads" },
-  { label: "Creatives", href: "/creatives", icon: "creatives" },
   { label: "Rules", href: "/rules", icon: "rules" },
   { label: "Competitor Intel", href: "/competitors", icon: "competitors" },
   { label: "Insights", href: "/insights", icon: "insights" },

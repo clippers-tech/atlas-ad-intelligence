@@ -39,16 +39,6 @@ export function AdsIcon() {
   );
 }
 
-export function CreativesIcon() {
-  return (
-    <svg {...iconProps} viewBox="0 0 24 24">
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="8.5" cy="8.5" r="1.5" />
-      <path d="M21 15l-5-5L5 21" />
-    </svg>
-  );
-}
-
 export function RulesIcon() {
   return (
     <svg {...iconProps} viewBox="0 0 24 24">
@@ -99,7 +89,6 @@ export const NAV_ICON_MAP: Record<string, () => JSX.Element> = {
   campaigns: CampaignsIcon,
   adsets: AdSetsIcon,
   ads: AdsIcon,
-  creatives: CreativesIcon,
   rules: RulesIcon,
   competitors: CompetitorsIcon,
   insights: InsightsIcon,
