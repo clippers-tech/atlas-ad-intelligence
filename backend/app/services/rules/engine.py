@@ -1,4 +1,4 @@
-"""Rules engine — evaluates automation rules against ad metrics and fires actions."""
+"""Rules engine — evaluates automation rules against ad metrics."""
 
 import json
 import logging
@@ -11,9 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.action_log import ActionLog
 from app.models.ad import Ad
 from app.models.ad_metric import AdMetric
-from app.models.ad_set import AdSet
 from app.models.rule import Rule
-from app.services.meta.actions import pause_ad, resume_ad, update_budget
+from app.services.rules.dispatch import dispatch_action
 
 logger = logging.getLogger(__name__)
 
@@ -23,32 +22,94 @@ _OPS: dict = {
     ">=": lambda a, b: a >= b,
     "<=": lambda a, b: a <= b,
     "==": lambda a, b: a == b,
+    "=": lambda a, b: a == b,
+    "!=": lambda a, b: a != b,
 }
 
 
-def _eval_condition(value: float, operator: str, threshold: float) -> bool:
-    """Evaluate a single numeric condition against a threshold."""
+def _eval_condition(
+    value: float, operator: str, threshold: float
+) -> bool:
+    """Evaluate a single numeric condition."""
     fn = _OPS.get(operator)
     if fn is None:
-        logger.warning("rules_engine: unknown operator %r", operator)
+        logger.warning("rules: unknown operator %r", operator)
         return False
     return fn(value, threshold)
 
 
-def _metric_from_row(row: AdMetric, metric_name: str) -> float | None:
-    """Extract a named metric value from an AdMetric row, or None if absent."""
+def _metric_from_row(
+    row: AdMetric, metric_name: str
+) -> float | None:
+    """Extract a named metric from an AdMetric row."""
     return getattr(row, metric_name, None)
 
 
-# ---------------------------------------------------------------------------
-# Cooldown check
-# ---------------------------------------------------------------------------
+def _eval_full_condition(
+    metric_row: AdMetric, condition: dict
+) -> bool:
+    """Evaluate a condition tree including AND/OR branches.
+
+    Shape: {"metric": "spend", "operator": ">", "value": 75,
+            "and": [{"metric": "conversions", "operator": "==", "value": 0}]}
+    """
+    metric_name = condition.get("metric", "")
+    operator = condition.get("operator", "")
+    threshold = condition.get("value")
+
+    if not metric_name or not operator or threshold is None:
+        return False
+
+    value = _metric_from_row(metric_row, metric_name)
+    if value is None:
+        return False
+
+    if not _eval_condition(float(value), operator, float(threshold)):
+        return False
+
+    # AND — ALL must pass
+    for sub in condition.get("and", []):
+        if not _eval_full_condition(metric_row, sub):
+            return False
+
+    # OR — at least ONE must pass (if present)
+    or_conditions = condition.get("or", [])
+    if or_conditions:
+        if not any(
+            _eval_full_condition(metric_row, s)
+            for s in or_conditions
+        ):
+            return False
+
+    return True
+
+
+def _build_snapshot(
+    metric_row: AdMetric, condition: dict, ad_id
+) -> dict:
+    """Collect metric values referenced in a condition tree."""
+    snap: dict = {"ad_id": str(ad_id)}
+    name = condition.get("metric", "")
+    if name:
+        snap[name] = _metric_from_row(metric_row, name)
+    for sub in condition.get("and", []):
+        n = sub.get("metric", "")
+        if n:
+            snap[n] = _metric_from_row(metric_row, n)
+    for sub in condition.get("or", []):
+        n = sub.get("metric", "")
+        if n:
+            snap[n] = _metric_from_row(metric_row, n)
+    return snap
+
 
 async def check_cooldown(
     db: AsyncSession, rule_id: uuid.UUID, cooldown_minutes: int
 ) -> bool:
-    """Return True if the rule fired recently and is still in cooldown."""
-    cutoff = datetime.now(timezone.utc) - timedelta(minutes=cooldown_minutes)
+    """True if the rule fired recently (still in cooldown)."""
+    cutoff = datetime.now(timezone.utc) - timedelta(
+        minutes=cooldown_minutes
+    )
     result = await db.execute(
         select(ActionLog.created_at)
         .where(
@@ -60,116 +121,28 @@ async def check_cooldown(
     return result.scalar_one_or_none() is not None
 
 
-# ---------------------------------------------------------------------------
-# Action dispatch
-# ---------------------------------------------------------------------------
-
-async def _dispatch_action(
-    db: AsyncSession,
-    rule: Rule,
-    ad: Ad,
-    action_cfg: dict,
-    metric_snapshot: dict,
-) -> dict | None:
-    """Execute the configured action and write an ActionLog entry."""
-    action_name: str = action_cfg.get("action", "")
-    percent: float = float(action_cfg.get("percent", 10))
-    result: dict | None = None
-    action_type: str = action_name
-    is_reversible = True
-
-    if action_name == "pause":
-        result = await pause_ad(ad.meta_ad_id)
-        action_type = "pause"
-        is_reversible = True
-
-    elif action_name == "resume":
-        result = await resume_ad(ad.meta_ad_id)
-        action_type = "resume"
-        is_reversible = True
-
-    elif action_name in ("increase_budget", "decrease_budget"):
-        # Operate on the parent AdSet budget
-        adset_row = await db.get(AdSet, ad.ad_set_id)
-        if adset_row is None:
-            logger.warning("rules_engine: adset %s not found for ad %s", ad.ad_set_id, ad.id)
-            return None
-        current = adset_row.daily_budget or 0.0
-        if action_name == "increase_budget":
-            new_budget = current * (1 + percent / 100)
-            action_type = "increase_budget"
-        else:
-            new_budget = current * (1 - percent / 100)
-            action_type = "decrease_budget"
-        result = await update_budget(adset_row.meta_adset_id, new_budget)
-        is_reversible = True
-
-    else:
-        logger.warning("rules_engine: unhandled action %r for rule %s", action_name, rule.id)
-        return None
-
-    if result is None or not result.get("success"):
-        logger.error(
-            "rules_engine: action %s failed for ad %s — %s",
-            action_type, ad.meta_ad_id, result,
-        )
-        return None
-
-    # Persist to action_log
-    log_entry = ActionLog(
-        account_id=rule.account_id,
-        ad_id=ad.id,
-        rule_id=rule.id,
-        action_type=action_type,
-        details_json=json.dumps({
-            "rule_name": rule.name,
-            "metric_snapshot": metric_snapshot,
-            "meta_result": result,
-        }),
-        is_reversible=is_reversible,
-        triggered_by="rule_engine",
-    )
-    db.add(log_entry)
-    await db.flush()
-
-    logger.info(
-        "rules_engine: rule %r fired action %s on ad %s",
-        rule.name, action_type, ad.meta_ad_id,
-    )
-    return {
-        "rule_id": str(rule.id),
-        "rule_name": rule.name,
-        "ad_id": str(ad.id),
-        "meta_ad_id": ad.meta_ad_id,
-        "action": action_type,
-        "metric_snapshot": metric_snapshot,
-    }
-
-
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------------
 # Main entry point
-# ---------------------------------------------------------------------------
+# -------------------------------------------------------------------
 
 async def evaluate_rules_for_account(
     db: AsyncSession, account_id: uuid.UUID
 ) -> list[dict]:
-    """Evaluate all active rules for the account and execute triggered actions."""
+    """Evaluate all enabled rules and execute actions."""
     horizon = datetime.now(timezone.utc) - timedelta(hours=1)
 
-    # Load all enabled rules for this account
     rules_result = await db.execute(
         select(Rule).where(
             Rule.account_id == account_id,
             Rule.is_enabled.is_(True),
-        ).order_by(Rule.priority.desc())
+        ).order_by(Rule.priority.asc())
     )
-    rules: list[Rule] = list(rules_result.scalars().all())
+    rules = list(rules_result.scalars().all())
 
     if not rules:
-        logger.debug("rules_engine: no active rules for account %s", account_id)
+        logger.debug("rules: no active rules for %s", account_id)
         return []
 
-    # Fetch recent metrics (all ads, last hour)
     metrics_result = await db.execute(
         select(AdMetric)
         .where(
@@ -178,9 +151,8 @@ async def evaluate_rules_for_account(
         )
         .order_by(AdMetric.ad_id, AdMetric.timestamp.desc())
     )
-    all_metrics: list[AdMetric] = list(metrics_result.scalars().all())
+    all_metrics = list(metrics_result.scalars().all())
 
-    # Group by ad_id — keep most recent per ad
     latest_by_ad: dict[uuid.UUID, AdMetric] = {}
     for m in all_metrics:
         if m.ad_id not in latest_by_ad:
@@ -190,59 +162,42 @@ async def evaluate_rules_for_account(
 
     for rule in rules:
         try:
-            condition: dict = json.loads(rule.condition_json)
-            action_cfg: dict = json.loads(rule.action_json)
+            condition = json.loads(rule.condition_json)
+            action_cfg = json.loads(rule.action_json)
         except (json.JSONDecodeError, TypeError) as exc:
-            logger.error("rules_engine: invalid JSON in rule %s — %s", rule.id, exc)
+            logger.error("rules: bad JSON in rule %s — %s", rule.id, exc)
             continue
 
-        metric_name: str = condition.get("metric", "")
-        operator: str = condition.get("operator", "")
-        threshold = condition.get("value")
-
-        if not metric_name or not operator or threshold is None:
-            logger.warning("rules_engine: incomplete condition in rule %s — skipping", rule.id)
+        if await check_cooldown(db, rule.id, rule.cooldown_minutes):
             continue
 
-        # Check cooldown once per rule (not per-ad)
-        in_cooldown = await check_cooldown(db, rule.id, rule.cooldown_minutes)
-        if in_cooldown:
-            logger.debug("rules_engine: rule %r is in cooldown — skipping", rule.name)
-            continue
-
-        # Budget gate — if rule has a budget and it's exhausted, skip
-        if rule.budget_limit is not None and rule.budget_spent >= rule.budget_limit:
-            logger.info(
-                "rules_engine: rule %r budget exhausted (%.2f/%.2f) — skipping",
-                rule.name, rule.budget_spent, rule.budget_limit,
-            )
+        if (
+            rule.budget_limit is not None
+            and rule.budget_spent >= rule.budget_limit
+        ):
             continue
 
         for ad_id, metric_row in latest_by_ad.items():
-            metric_value = _metric_from_row(metric_row, metric_name)
-            if metric_value is None:
-                continue
-
-            if not _eval_condition(float(metric_value), operator, float(threshold)):
+            if not _eval_full_condition(metric_row, condition):
                 continue
 
             ad = await db.get(Ad, ad_id)
             if ad is None or ad.account_id != account_id:
                 continue
 
-            snapshot = {metric_name: metric_value, "ad_id": str(ad_id)}
-            action_result = await _dispatch_action(db, rule, ad, action_cfg, snapshot)
-            if action_result:
-                # Track spend against the rule's budget
+            snapshot = _build_snapshot(metric_row, condition, ad_id)
+            result = await dispatch_action(
+                db, rule, ad, action_cfg, snapshot
+            )
+            if result:
                 ad_spend = getattr(metric_row, "spend", 0.0) or 0.0
                 rule.budget_spent = (rule.budget_spent or 0.0) + ad_spend
                 await db.flush()
-                actions_taken.append(action_result)
-                # Enforce cooldown: once fired, stop evaluating further ads for this rule
-                break
+                actions_taken.append(result)
+                break  # cooldown: one fire per rule per eval
 
     logger.info(
-        "rules_engine: account %s — %d action(s) taken from %d rule(s)",
+        "rules: account %s — %d action(s) from %d rule(s)",
         account_id, len(actions_taken), len(rules),
     )
     return actions_taken
