@@ -41,8 +41,10 @@ export default function AdsPage() {
 
   const ads = data?.data ?? [];
   const filtered = useMemo(() => {
-    if (statusFilter === "ALL") return ads;
-    return ads.filter((a) => a.status.toUpperCase() === statusFilter);
+    const list = statusFilter === "ALL"
+      ? ads
+      : ads.filter((a) => a.status.toUpperCase() === statusFilter);
+    return [...list].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
   }, [ads, statusFilter]);
 
   if (accountLoading) return <PageLoader />;

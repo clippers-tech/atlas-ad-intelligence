@@ -59,8 +59,10 @@ export default function AdSetsPage() {
 
   const adsets = data?.data ?? [];
   const filtered = useMemo(() => {
-    if (statusFilter === "ALL") return adsets;
-    return adsets.filter((a) => a.status.toUpperCase() === statusFilter);
+    const list = statusFilter === "ALL"
+      ? adsets
+      : adsets.filter((a) => a.status.toUpperCase() === statusFilter);
+    return [...list].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
   }, [adsets, statusFilter]);
 
   if (accountLoading) return <PageLoader />;

@@ -52,10 +52,10 @@ export default function CampaignsPage() {
 
   const campaigns = data?.data ?? [];
   const filtered = useMemo(() => {
-    if (statusFilter === "ALL") return campaigns;
-    return campaigns.filter(
-      (c) => c.status.toUpperCase() === statusFilter
-    );
+    const list = statusFilter === "ALL"
+      ? campaigns
+      : campaigns.filter((c) => c.status.toUpperCase() === statusFilter);
+    return [...list].sort((a, b) => (b.spend ?? 0) - (a.spend ?? 0));
   }, [campaigns, statusFilter]);
 
   if (accountLoading) return <PageLoader />;
