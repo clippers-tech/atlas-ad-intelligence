@@ -70,8 +70,8 @@ export default function SettingsPage() {
         <Card title="Performance Targets" subtitle="Set target metrics for alerts and automation">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { label: "Target CPL", value: currentAccount.target_cpl, unit: "GBP" },
-              { label: "Target CPA", value: currentAccount.target_cpa, unit: "GBP" },
+              { label: "Target CPL", value: currentAccount.target_cpl, unit: currentAccount.currency || "AED" },
+              { label: "Target CPA", value: currentAccount.target_cpa, unit: currentAccount.currency || "AED" },
               { label: "Target ROAS", value: currentAccount.target_roas, unit: "x" },
             ].map((t) => (
               <div key={t.label} className="p-3 rounded-lg bg-[var(--surface-2)] border border-[var(--border)]/50">

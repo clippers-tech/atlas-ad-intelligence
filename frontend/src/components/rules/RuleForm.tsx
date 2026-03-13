@@ -3,6 +3,8 @@
 import { useState, type FormEvent } from "react";
 import type { Rule, RuleCondition } from "@/lib/types";
 import { RULE_TYPES, ACTION_TYPES } from "@/lib/constants";
+import { useAccountContext } from "@/contexts/AccountContext";
+import { currencySymbol } from "@/lib/utils";
 import RuleConditionBuilder from "./RuleConditionBuilder";
 
 interface RuleFormProps {
@@ -12,6 +14,8 @@ interface RuleFormProps {
 }
 
 export default function RuleForm({ initialValues, onSubmit, onCancel }: RuleFormProps) {
+  const { currentAccount } = useAccountContext();
+  const sym = currencySymbol(currentAccount?.currency);
   const [name, setName] = useState(initialValues?.name ?? "");
   const [type, setType] = useState<Rule["type"]>(initialValues?.type ?? "kill");
   const [description, setDescription] = useState(initialValues?.description ?? "");
@@ -151,7 +155,7 @@ export default function RuleForm({ initialValues, onSubmit, onCancel }: RuleForm
       {/* Budget */}
       <div>
         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
-          Budget Limit (£) <span className="text-gray-600 font-normal normal-case">— max spend before rule auto-acts</span>
+          Budget Limit ({sym}) <span className="text-gray-600 font-normal normal-case">— max spend before rule auto-acts</span>
         </label>
         <input
           type="number"

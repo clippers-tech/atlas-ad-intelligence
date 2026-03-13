@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { Account } from "@/lib/types";
+import { currencySymbol } from "@/lib/utils";
 
 interface AccountFormProps {
   initialValues?: Account;
@@ -15,7 +16,7 @@ const BUSINESS_TYPES = [
   { value: "agency", label: "Agency" },
 ] as const;
 
-const CURRENCIES = ["GBP", "USD", "EUR", "AUD", "CAD"];
+const CURRENCIES = ["AED", "USD", "GBP", "EUR", "AUD", "CAD"];
 
 const TIMEZONES = [
   "Europe/London",
@@ -43,7 +44,8 @@ export default function AccountForm({
   const [targetCpa, setTargetCpa] = useState(String(initialValues?.target_cpa ?? ""));
   const [targetRoas, setTargetRoas] = useState(String(initialValues?.target_roas ?? ""));
   const [timezone, setTimezone] = useState(initialValues?.timezone ?? "Europe/London");
-  const [currency, setCurrency] = useState(initialValues?.currency ?? "GBP");
+  const [currency, setCurrency] = useState(initialValues?.currency ?? "AED");
+  const sym = currencySymbol(currency);
   const [telegramChatId, setTelegramChatId] = useState(
     initialValues?.telegram_chat_id ?? ""
   );
@@ -95,11 +97,11 @@ export default function AccountForm({
       {/* Targets */}
       <div className="grid grid-cols-3 gap-4">
         <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Target CPL (£)</label>
+          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Target CPL ({sym})</label>
           <input type="number" value={targetCpl} onChange={(e) => setTargetCpl(e.target.value)} min={0} step={0.01} className={inputClass} placeholder="0.00" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Target CPA (£)</label>
+          <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Target CPA ({sym})</label>
           <input type="number" value={targetCpa} onChange={(e) => setTargetCpa(e.target.value)} min={0} step={0.01} className={inputClass} placeholder="0.00" />
         </div>
         <div>

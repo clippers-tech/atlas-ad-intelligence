@@ -1,7 +1,20 @@
 import { format, formatDistanceToNow, parseISO } from "date-fns";
 
-export function formatCurrency(value: number, currency = "GBP"): string {
-  return new Intl.NumberFormat("en-GB", {
+const LOCALE_MAP: Record<string, string> = {
+  AED: "en-AE",
+  GBP: "en-GB",
+  USD: "en-US",
+  EUR: "de-DE",
+  AUD: "en-AU",
+  CAD: "en-CA",
+};
+
+function localeFor(currency: string): string {
+  return LOCALE_MAP[currency] || "en-AE";
+}
+
+export function formatCurrency(value: number, currency = "AED"): string {
+  return new Intl.NumberFormat(localeFor(currency), {
     style: "currency",
     currency,
     minimumFractionDigits: 0,
@@ -9,13 +22,21 @@ export function formatCurrency(value: number, currency = "GBP"): string {
   }).format(value);
 }
 
-export function formatCurrencyDecimal(value: number, currency = "GBP"): string {
-  return new Intl.NumberFormat("en-GB", {
+export function formatCurrencyDecimal(value: number, currency = "AED"): string {
+  return new Intl.NumberFormat(localeFor(currency), {
     style: "currency",
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+export function currencySymbol(currency = "AED"): string {
+  const parts = new Intl.NumberFormat(localeFor(currency), {
+    style: "currency",
+    currency,
+  }).formatToParts(0);
+  return parts.find((p) => p.type === "currency")?.value ?? currency;
 }
 
 export function formatPercent(value: number): string {
