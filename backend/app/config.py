@@ -1,5 +1,6 @@
 """Application configuration via pydantic-settings."""
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -14,6 +15,20 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "postgresql+asyncpg://atlas:password@postgres:5432/atlas"
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def ensure_asyncpg_driver(cls, v: str) -> str:
+        """Auto-convert postgresql:// to postgresql+asyncpg://.
+
+        Render sets DATABASE_URL as 'postgresql://...' but SQLAlchemy
+        async requires the asyncpg driver prefix.
+        """
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://") and "+asyncpg" not in v:
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return v
 
     # Meta Marketing API
     meta_app_id: str = ""
