@@ -66,11 +66,12 @@ export function InsightsIcon() {
   );
 }
 
-export function ComputerIcon() {
+export function AutomationsIcon() {
   return (
     <svg {...iconProps} viewBox="0 0 24 24">
-      <rect x="2" y="3" width="20" height="14" rx="2" />
-      <path d="M8 21h8M12 17v4" strokeLinecap="round" />
+      <path d="M12 8v4l3 3" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 2v2M12 20v2M2 12h2M20 12h2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -92,6 +93,6 @@ export const NAV_ICON_MAP: Record<string, () => JSX.Element> = {
   rules: RulesIcon,
   competitors: CompetitorsIcon,
   insights: InsightsIcon,
-  computer: ComputerIcon,
+  automations: AutomationsIcon,
   settings: SettingsIcon,
 };

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     telegram_bot_token: str = ""
     telegram_default_chat_id: str = ""
 
+    # Anthropic Claude AI
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-6"
+
     # BTC Price
     btc_price_api_url: str = (
         "https://api.coingecko.com/api/v3/simple/price"

@@ -1,4 +1,4 @@
-"""ScheduleLog model — records Perplexity Computer scheduled runs."""
+"""ScheduleLog model — records ATLAS Scheduler automated runs."""
 
 import uuid
 from datetime import datetime
@@ -25,8 +25,8 @@ class ScheduleLog(Base):
         # running, completed, failed
     )
     source: Mapped[str] = mapped_column(
-        String(50), nullable=False, default="computer"
-        # computer, manual
+        String(50), nullable=False, default="scheduler"
+        # scheduler, manual
     )
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(

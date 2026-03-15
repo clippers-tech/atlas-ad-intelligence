@@ -100,7 +100,7 @@ export interface Insight {
   priority?: string;
   response_text: string | null;
   recommendations_json: string | null;
-  source: string | null; // "computer_schedule" | "manual"
+  source: string | null; // "claude" | "scheduler" | "manual"
   created_at: string;
 }
 

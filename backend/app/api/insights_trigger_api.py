@@ -1,9 +1,9 @@
-"""Insights trigger API — queue an AI insight generation run."""
+"""Insights trigger API — run AI insight generation via Claude."""
 
 import logging
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,31 +18,73 @@ class TriggerRequest(BaseModel):
     account_id: str
 
 
+async def _run_insight_generation(account_id: str):
+    """Background task: generate insights using Claude."""
+    from app.database import async_session_factory
+    from app.services.insights.claude_analyzer import (
+        generate_insights_for_account,
+    )
+    from uuid import UUID
+
+    async with async_session_factory() as db:
+        log = ScheduleLog(
+            task_name="insight_generation",
+            status="running",
+            source="manual",
+            summary=f"Manual trigger for account {account_id}",
+        )
+        db.add(log)
+        await db.flush()
+        await db.refresh(log)
+
+        try:
+            result = await generate_insights_for_account(
+                db, UUID(account_id)
+            )
+            log.status = "completed"
+            log.summary = (
+                f"Generated {result.get('insights_created', 0)} "
+                f"insights for account {account_id}"
+            )
+            log.finished_at = datetime.now(timezone.utc)
+            await db.flush()
+            await db.commit()
+            logger.info(
+                "insight trigger complete: %s", log.summary
+            )
+        except Exception as exc:
+            log.status = "failed"
+            log.error_message = str(exc)
+            log.finished_at = datetime.now(timezone.utc)
+            await db.flush()
+            await db.commit()
+            logger.error(
+                "insight trigger failed for %s: %s",
+                account_id, exc,
+            )
+
+
 @router.post("/trigger")
 async def trigger_insight_generation(
     payload: TriggerRequest,
-    db: AsyncSession = Depends(get_db),
+    background_tasks: BackgroundTasks,
 ):
-    """Queue an insight generation run.
+    """Trigger Claude AI insight generation for an account.
 
-    Creates a schedule log entry with status 'pending' that
-    Computer picks up on its next check, or the cron handles.
+    Runs analysis in the background and stores results.
+    Check /api/insights for generated insights.
     """
-    log = ScheduleLog(
-        task_name="insight_generation",
-        status="pending",
-        source="manual",
-        summary=f"Manual trigger for account {payload.account_id}",
+    background_tasks.add_task(
+        _run_insight_generation, payload.account_id
     )
-    db.add(log)
-    await db.flush()
-    await db.refresh(log)
     logger.info(
-        "Insight generation queued for account=%s",
+        "Insight generation triggered for account=%s",
         payload.account_id,
     )
     return {
-        "status": "queued",
-        "message": "Insight generation has been queued. Results will appear shortly.",
-        "log_id": str(log.id),
+        "status": "processing",
+        "message": (
+            "Claude AI insight generation started. "
+            "Results will appear on the Insights page shortly."
+        ),
     }

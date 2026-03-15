@@ -4,26 +4,8 @@ services:
     build: ./backend
     ports: ["8000:8000"]
     env_file: .env
-    depends_on: [postgres, redis]
+    depends_on: [postgres]
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    volumes:
-      - ./backend:/app
-    networks: [atlas-net]
-
-  celery-worker:
-    build: ./backend
-    env_file: .env
-    depends_on: [postgres, redis]
-    command: celery -A app.tasks.celery_app worker --loglevel=info --concurrency=4
-    volumes:
-      - ./backend:/app
-    networks: [atlas-net]
-
-  celery-beat:
-    build: ./backend
-    env_file: .env
-    depends_on: [postgres, redis]
-    command: celery -A app.tasks.celery_app beat --loglevel=info
     volumes:
       - ./backend:/app
     networks: [atlas-net]

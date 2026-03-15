@@ -23,7 +23,7 @@ class InsightCreate(BaseModel):
     summary: str
     recommendation: Optional[str] = None
     priority: str = "medium"
-    source: str = "computer"
+    source: str = "claude"
 
 
 @router.get("")
@@ -79,7 +79,7 @@ async def create_insight(
     payload: InsightCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new insight (called by Computer after AI analysis)."""
+    """Create a new insight (called by Claude AI analysis)."""
     insight = Insight(
         account_id=payload.account_id,
         type=payload.type,

@@ -1,4 +1,4 @@
-"""Schedule logs API — track Perplexity Computer activity."""
+"""Schedule logs API — track ATLAS Scheduler activity."""
 
 import logging
 from datetime import datetime, timezone
@@ -94,7 +94,7 @@ async def create_schedule_log(
     payload: ScheduleLogCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create a new schedule log entry (called by Computer)."""
+    """Create a new schedule log entry (called by Scheduler)."""
     log = ScheduleLog(
         task_name=payload.task_name,
         status=payload.status,

@@ -48,7 +48,7 @@ export default function DashboardPage() {
       {campaigns.length === 0 && !isLoading ? (
         <EmptyState
           title="No campaigns yet"
-          description="Connect your Meta token to start pulling campaign data. Perplexity Computer will handle the rest."
+          description="Connect your Meta token to start pulling campaign data. ATLAS will handle the rest automatically."
         />
       ) : (
         <CampaignTable campaigns={campaigns} targetCpl={currentAccount.target_cpl} />

@@ -4,7 +4,7 @@ import { StatusBadge } from "@/components/common/StatusBadge";
 import { formatRelative } from "@/lib/utils";
 import type { TaskStats } from "@/hooks/useSchedules";
 
-/** Static config for the 4 automations managed by Computer */
+/** Static config for the 5 automations managed by ATLAS Scheduler */
 const AUTOMATIONS = [
   {
     key: "meta_sync",
@@ -33,6 +33,13 @@ const AUTOMATIONS = [
     description: "Verify backend is alive, DB connected, and data is fresh",
     frequency: "Every 2 hours",
     icon: "💚",
+  },
+  {
+    key: "insight_generation",
+    label: "AI Insights",
+    description: "Generate AI-powered insights using Claude to analyze ad performance and competitor data",
+    frequency: "Every 4 hours",
+    icon: "🧠",
   },
 ] as const;
 

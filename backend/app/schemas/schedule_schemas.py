@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, field_serializer
 class ScheduleLogCreate(BaseModel):
     task_name: str
     status: str = "running"
-    source: str = "computer"
+    source: str = "scheduler"
     summary: Optional[str] = None
 
 

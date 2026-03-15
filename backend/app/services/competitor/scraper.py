@@ -1,7 +1,7 @@
 """Competitor data service — stores and queries competitor ad data.
 
-Scraping is handled by Perplexity Computer via scheduled runs.
-Computer calls POST /api/competitors/ads to ingest discovered ads.
+Scraping is handled by the ATLAS Scheduler via automated runs.
+Scheduler calls POST /api/competitors/ads to ingest discovered ads.
 This module provides the DB queries and summary logic.
 """
 
@@ -28,7 +28,7 @@ async def ingest_competitor_ads(
     competitor_config_id: UUID,
     ads_data: list[dict],
 ) -> dict:
-    """Ingest competitor ads from an external source (Perplexity Computer).
+    """Ingest competitor ads from the ATLAS Scheduler.
 
     Upserts CompetitorAd records keyed on creative_url — updates last_seen
     for existing ads, inserts new ones. All records scoped to account_id.

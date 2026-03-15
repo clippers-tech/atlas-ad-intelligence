@@ -16,7 +16,7 @@ export function ScheduleStats({ stats, logs }: ScheduleStatsProps) {
       : 0;
 
   const activeTasks = stats.length;
-  const configuredTasks = 4; // We have 4 automations configured
+  const configuredTasks = 5; // We have 5 automations configured
 
   // Count runs in the last 24h from the log feed
   const now = Date.now();

@@ -1,4 +1,4 @@
-"""Insight model — AI-generated insights from Computer analysis."""
+"""Insight model — AI-generated insights from Claude analysis."""
 
 import uuid
 from datetime import datetime
@@ -35,8 +35,8 @@ class Insight(Base):
         # critical, high, medium, low
     )
     source: Mapped[str | None] = mapped_column(
-        String(50), default="computer"
-        # computer_schedule, manual
+        String(50), default="claude"
+        # claude, scheduler, manual
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

@@ -12,7 +12,7 @@ export function ActivityWidget() {
 
   return (
     <Card
-      title="Computer Activity"
+      title="Automation Activity"
       subtitle="Recent scheduled runs"
     >
       <ActivityFeed logs={logs} compact />

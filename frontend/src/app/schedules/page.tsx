@@ -21,8 +21,8 @@ export default function SchedulesPage() {
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
-        title="Computer Activity"
-        subtitle="Automated tasks managed by Perplexity Computer"
+        title="Automations"
+        subtitle="Scheduled automated tasks powered by ATLAS"
         actions={
           <span className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 text-[11px] font-medium">
             Auto-refreshes every 60s
