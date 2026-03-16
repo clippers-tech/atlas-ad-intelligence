@@ -15,6 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.ad import Ad
 from app.models.ad_metric import AdMetric
 from app.services.meta.client import meta_client
+from app.services.meta.metrics_parsers import (
+    _safe_int, _safe_float,
+    parse_actions, parse_cost_per_action,
+    parse_outbound, parse_website_ctr,
+    parse_results, parse_result_cost,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -40,68 +46,9 @@ _INSIGHT_FIELDS = ",".join([
 ])
 
 
-def _parse_actions(actions: list[dict] | None, key: str) -> int:
-    """Extract a specific action count from Meta actions array."""
-    if not actions:
-        return 0
-    for a in actions:
-        if a.get("action_type") == key:
-            return int(a.get("value", 0))
-    return 0
-
-
-def _parse_cost_per_action(
-    cost_actions: list[dict] | None, key: str
-) -> float:
-    if not cost_actions:
-        return 0.0
-    for a in cost_actions:
-        if a.get("action_type") == key:
-            return float(a.get("value", 0))
-    return 0.0
-
-
-def _safe_int(val: Any) -> int:
-    try:
-        return int(val)
-    except (TypeError, ValueError):
-        return 0
-
-
-def _safe_float(val: Any) -> float:
-    try:
-        return float(val)
-    except (TypeError, ValueError):
-        return 0.0
-
-
-def _parse_outbound(row: dict) -> int:
-    """outbound_clicks is an array of {action_type, value}."""
-    oc = row.get("outbound_clicks")
-    if not oc:
-        return 0
-    for item in oc:
-        if item.get("action_type") == "outbound_click":
-            return _safe_int(item.get("value", 0))
-    return 0
-
-
-def _parse_website_ctr(row: dict) -> float:
-    """website_ctr is an array of {action_type, value}."""
-    wc = row.get("website_ctr")
-    if not wc:
-        return 0.0
-    for item in wc:
-        if item.get("action_type") == "offsite_conversion.fb_pixel_view_content":
-            return _safe_float(item.get("value", 0))
-    # Fallback: first item
-    if wc:
-        return _safe_float(wc[0].get("value", 0))
-    return 0.0
-
-
 async def _upsert_metric(
     db: AsyncSession, ad: Ad, row: dict[str, Any],
+    meta_ad_account_id: str = "",
 ) -> None:
     """Upsert one day of metrics for an ad."""
     date_str = row.get("date_start", "")
@@ -137,15 +84,21 @@ async def _upsert_metric(
     metric.link_clicks = _safe_int(row.get("inline_link_clicks"))
     metric.clicks_all = _safe_int(row.get("clicks"))
     metric.clicks = metric.clicks_all  # legacy alias
-    metric.ctr_link = _safe_float(row.get("inline_link_click_ctr"))
-    metric.ctr_all = _parse_website_ctr(row)
+    metric.ctr_link = _safe_float(
+        row.get("inline_link_click_ctr")
+    )
+    metric.ctr_all = parse_website_ctr(row)
     metric.ctr = metric.ctr_link  # legacy alias
-    metric.cpc_link = _safe_float(row.get("cost_per_inline_link_click"))
-    metric.cpc_all = _safe_float(row.get("cost_per_unique_click"))
+    metric.cpc_link = _safe_float(
+        row.get("cost_per_inline_link_click")
+    )
+    metric.cpc_all = _safe_float(
+        row.get("cost_per_unique_click")
+    )
     metric.cpc = metric.cpc_link  # legacy alias
 
     # Outbound
-    metric.outbound_clicks = _parse_outbound(row)
+    metric.outbound_clicks = parse_outbound(row)
 
     # Unique
     metric.unique_clicks = _safe_int(row.get("unique_clicks"))
@@ -153,18 +106,25 @@ async def _upsert_metric(
     # Landing page views (in actions array)
     actions = row.get("actions")
     cost_per = row.get("cost_per_action_type")
-    metric.landing_page_views = _parse_actions(
+    metric.landing_page_views = parse_actions(
         actions, "landing_page_view"
     )
-    metric.cost_per_lpv = _parse_cost_per_action(
+    metric.cost_per_lpv = parse_cost_per_action(
         cost_per, "landing_page_view"
     )
 
-    # Conversions
-    metric.conversions = _parse_actions(actions, "lead")
-    metric.cpl = _parse_cost_per_action(cost_per, "lead")
-    metric.cost_per_result = metric.cpl  # same for lead campaigns
-    metric.cpa = _parse_cost_per_action(
+    # Conversions / Results
+    # Use custom conversion events if configured for this
+    # account (e.g. Booked Call), else standard 'lead'.
+    metric.conversions = parse_results(
+        actions, meta_ad_account_id,
+    )
+    metric.cost_per_result = parse_result_cost(
+        cost_per, meta_ad_account_id,
+        metric.spend, metric.conversions,
+    )
+    metric.cpl = metric.cost_per_result
+    metric.cpa = parse_cost_per_action(
         cost_per, "offsite_conversion.fb_pixel_purchase"
     )
 
@@ -214,7 +174,9 @@ async def sync_metrics(
                 meta_ad_id = row.get("ad_id")
                 ad = ad_map.get(meta_ad_id)
                 if ad:
-                    await _upsert_metric(db, ad, row)
+                    await _upsert_metric(
+                        db, ad, row, meta_ad_account_id,
+                    )
                     metric_count += 1
             await db.flush()
 
