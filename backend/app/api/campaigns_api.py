@@ -112,6 +112,7 @@ async def _campaign_metrics(
     conv = int(row[7])
     uc = int(row[8])
 
+    cpr = round(s / conv, 2) if conv else 0.0
     return {
         "spend": round(s, 2),
         "impressions": imp,
@@ -129,7 +130,8 @@ async def _campaign_metrics(
         "ctr_link": round(lc / imp * 100, 2) if imp else 0.0,
         "ctr_all": round(ca / imp * 100, 2) if imp else 0.0,
         "cost_per_lpv": round(s / lpv, 2) if lpv else 0.0,
-        "cpl": round(s / conv, 2) if conv else 0.0,
+        "cpl": cpr,
+        "cost_per_result": cpr,
         "frequency": round(imp / rch, 2) if rch else 0.0,
         "roas": 0.0,
     }

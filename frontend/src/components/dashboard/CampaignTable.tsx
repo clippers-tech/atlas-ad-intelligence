@@ -26,7 +26,7 @@ const HEADERS = [
   "CPC (Link)",
   "LPV",
   "Results",
-  "CPL",
+  "Cost / Result",
 ] as const;
 
 export function CampaignTable({ campaigns, targetCpl }: CampaignTableProps) {
@@ -83,7 +83,7 @@ export function CampaignTable({ campaigns, targetCpl }: CampaignTableProps) {
                       cplOver ? "text-red-400" : "text-[var(--text)]"
                     }`}
                   >
-                    {v(c.cpl, formatCurrencyDecimal)}
+                    {v(c.cost_per_result, formatCurrencyDecimal)}
                   </td>
                 </tr>
               );

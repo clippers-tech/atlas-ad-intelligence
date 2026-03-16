@@ -32,6 +32,8 @@ const COLUMNS: { label: string; key: string }[] = [
   { label: "Campaign", key: "name" },
   { label: "Status", key: "status" },
   { label: "Spend", key: "spend" },
+  { label: "Results", key: "leads" },
+  { label: "Cost / Result", key: "cost_per_result" },
   { label: "Impressions", key: "impressions" },
   { label: "Reach", key: "reach" },
   { label: "CPM", key: "cpm" },
@@ -41,8 +43,6 @@ const COLUMNS: { label: string; key: string }[] = [
   { label: "Clicks (All)", key: "clicks_all" },
   { label: "LPV", key: "landing_page_views" },
   { label: "Cost / LPV", key: "cost_per_lpv" },
-  { label: "Results", key: "leads" },
-  { label: "CPL", key: "cpl" },
 ];
 
 export default function CampaignsPage() {
@@ -184,6 +184,8 @@ function CampaignRow({
         />
       </td>
       <td className={cell}>{val(c.spend, formatCurrency)}</td>
+      <td className={cell}>{val(c.leads, formatNumber)}</td>
+      <td className={cell}>{val(c.cost_per_result, formatCurrencyDecimal)}</td>
       <td className={cell}>{val(c.impressions, formatNumber)}</td>
       <td className={cell}>{val(c.reach, formatNumber)}</td>
       <td className={cell}>{val(c.cpm, formatCurrencyDecimal)}</td>
@@ -192,10 +194,8 @@ function CampaignRow({
       <td className={cell}>{val(c.ctr_link, formatPercent)}</td>
       <td className={cell}>{val(c.clicks_all, formatNumber)}</td>
       <td className={cell}>{val(c.landing_page_views, formatNumber)}</td>
-      <td className={cell}>{val(c.cost_per_lpv, formatCurrencyDecimal)}</td>
-      <td className={cell}>{val(c.leads, formatNumber)}</td>
       <td className="px-3 py-3 pr-5 text-[13px] tabular-nums text-[var(--text)] whitespace-nowrap">
-        {val(c.cpl, formatCurrencyDecimal)}
+        {val(c.cost_per_lpv, formatCurrencyDecimal)}
       </td>
     </tr>
   );

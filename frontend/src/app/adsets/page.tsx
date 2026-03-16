@@ -24,6 +24,7 @@ interface AdSet {
   spend: number;
   leads: number;
   cpl: number;
+  cost_per_result: number;
   impressions: number;
   link_clicks: number;
   ctr_link: number;
@@ -42,9 +43,10 @@ const COLUMNS: { label: string; key: string }[] = [
   { label: "Status", key: "status" },
   { label: "Budget", key: "daily_budget" },
   { label: "Spend", key: "spend" },
-  { label: "Leads", key: "leads" },
-  { label: "CPL", key: "cpl" },
+  { label: "Results", key: "leads" },
+  { label: "Cost / Result", key: "cost_per_result" },
   { label: "Impressions", key: "impressions" },
+  { label: "CTR (Link)", key: "ctr_link" },
 ];
 
 export default function AdSetsPage() {
@@ -170,10 +172,13 @@ export default function AdSetsPage() {
                       {formatNumber(a.leads ?? 0)}
                     </td>
                     <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
-                      {a.cpl ? formatCurrencyDecimal(a.cpl) : "—"}
+                      {a.cost_per_result ? formatCurrencyDecimal(a.cost_per_result) : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
+                      {formatNumber(a.impressions ?? 0)}
                     </td>
                     <td className="px-4 py-3 pr-5 text-[13px] tabular-nums text-[var(--text)]">
-                      {formatNumber(a.impressions ?? 0)}
+                      {a.ctr_link ? `${a.ctr_link.toFixed(2)}%` : "—"}
                     </td>
                   </tr>
                 ))}

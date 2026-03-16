@@ -24,9 +24,9 @@ const FILTERS: { label: string; value: StatusFilter }[] = [
 
 const SORT_OPTIONS: { label: string; key: string }[] = [
   { label: "Spend", key: "spend" },
+  { label: "Results", key: "conversions" },
+  { label: "Cost / Result", key: "cost_per_result" },
   { label: "Impressions", key: "impressions" },
-  { label: "Leads", key: "leads" },
-  { label: "CPL", key: "cpl" },
   { label: "CTR", key: "ctr_link" },
   { label: "Clicks", key: "link_clicks" },
 ];
@@ -191,10 +191,10 @@ function AdCard({
       </div>
       <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-[var(--border)]/50">
         <Stat label="Spend" value={formatCurrency(ad.spend ?? 0)} />
+        <Stat label="Results" value={formatNumber(ad.conversions ?? 0)} />
+        <Stat label="Cost / Result" value={ad.cost_per_result ? formatCurrency(ad.cost_per_result) : "—"} />
         <Stat label="Impr." value={formatNumber(ad.impressions ?? 0)} />
         <Stat label="CTR" value={formatPercent(ad.ctr_link ?? 0)} />
-        <Stat label="Leads" value={formatNumber(ad.leads ?? 0)} />
-        <Stat label="CPL" value={formatCurrency(ad.cpl ?? 0)} />
         <Stat label="Clicks" value={formatNumber(ad.link_clicks ?? 0)} />
       </div>
     </Card>

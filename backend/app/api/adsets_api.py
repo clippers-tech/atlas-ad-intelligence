@@ -90,6 +90,7 @@ async def _adset_metrics(
     conv = int(row[6])
     uc = int(row[7])
 
+    cpr = round(s / conv, 2) if conv else 0.0
     return {
         "spend": round(s, 2),
         "impressions": imp,
@@ -104,7 +105,8 @@ async def _adset_metrics(
         "cpc_link": round(s / lc, 2) if lc else 0.0,
         "ctr_link": round(lc / imp * 100, 2) if imp else 0.0,
         "cost_per_lpv": round(s / lpv, 2) if lpv else 0.0,
-        "cpl": round(s / conv, 2) if conv else 0.0,
+        "cpl": cpr,
+        "cost_per_result": cpr,
         "frequency": round(imp / rch, 2) if rch else 0.0,
     }
 

@@ -43,6 +43,7 @@ export interface Campaign {
   ctr_all?: number;
   cost_per_lpv?: number;
   cpl?: number;
+  cost_per_result?: number;
   frequency?: number;
   roas?: number;
 }
@@ -70,6 +71,7 @@ export interface Ad {
   cpc_link?: number;
   ctr_link?: number;
   cpl?: number;
+  cost_per_result?: number;
 }
 
 export interface AdMetric {
@@ -105,6 +107,7 @@ export interface DashboardOverview {
   total_leads: number;
   effective_leads: number;
   avg_cpl: number;
+  cost_per_result: number;
   avg_cpm: number;
   avg_cpc_link: number;
   ctr_link: number;
@@ -128,6 +131,7 @@ export interface CampaignRow {
   landing_page_views: number;
   leads: number;
   cpl: number;
+  cost_per_result: number;
   cpm: number;
   ctr_link: number;
   cpc_link: number;

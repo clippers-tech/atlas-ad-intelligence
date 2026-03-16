@@ -116,6 +116,10 @@ async def dashboard_overview(
         db, account_id, camps, date_from, date_to
     )
 
+    cost_per_result = (
+        round(t_spend / t_conv, 2) if t_conv else 0.0
+    )
+
     return {
         "data": {
             "total_spend": round(t_spend, 2),
@@ -128,6 +132,7 @@ async def dashboard_overview(
             "total_leads": total_leads,
             "effective_leads": effective_leads,
             "avg_cpl": avg_cpl,
+            "cost_per_result": cost_per_result,
             "avg_cpm": round(t_spend / t_imp * 1000, 2) if t_imp else 0.0,
             "avg_cpc_link": round(t_spend / t_lc, 2) if t_lc else 0.0,
             "ctr_link": round(t_lc / t_imp * 100, 2) if t_imp else 0.0,
@@ -189,6 +194,7 @@ async def _campaign_breakdown(
                 clpv = int(r[4])
                 ccv = int(r[5])
 
+        cpr = round(cs / ccv, 2) if ccv else 0.0
         rows.append({
             "campaign_id": str(camp.id),
             "name": camp.name,
@@ -199,7 +205,8 @@ async def _campaign_breakdown(
             "clicks_all": cca,
             "landing_page_views": clpv,
             "leads": ccv,
-            "cpl": round(cs / ccv, 2) if ccv else 0.0,
+            "cpl": cpr,
+            "cost_per_result": cpr,
             "cpm": round(cs / ci * 1000, 2) if ci else 0.0,
             "ctr_link": round(clc / ci * 100, 2) if ci else 0.0,
             "cpc_link": round(cs / clc, 2) if clc else 0.0,

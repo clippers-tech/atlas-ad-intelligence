@@ -48,10 +48,10 @@ export function MetricCardRow({ data, isLoading }: MetricCardRowProps) {
 
   const leads = data.effective_leads ?? data.total_leads ?? 0;
   const conversionCards = [
+    { title: "Results", value: formatNumber(data.total_conversions ?? 0) },
+    { title: "Cost / Result", value: formatCurrencyDecimal(data.cost_per_result ?? 0), inverse: true },
     { title: "Leads", value: formatNumber(leads) },
     { title: "CPL", value: formatCurrencyDecimal(data.avg_cpl ?? 0), inverse: true },
-    { title: "Conversions", value: formatNumber(data.total_conversions ?? 0) },
-    { title: "Revenue", value: formatCurrency(data.total_revenue ?? 0) },
   ];
 
   return (

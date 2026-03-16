@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import AccountSwitcher from "./AccountSwitcher";
+import { RefreshButton } from "@/components/common/RefreshButton";
 import { fetchData } from "@/lib/api";
 import type { HealthStatus } from "@/lib/types";
 import { DATE_RANGES } from "@/lib/constants";
@@ -62,6 +63,10 @@ export default function Header() {
             </button>
           ))}
         </div>
+
+        <div className="w-px h-5 bg-[var(--border)]" />
+
+        <RefreshButton />
 
         <div className="w-px h-5 bg-[var(--border)]" />
 

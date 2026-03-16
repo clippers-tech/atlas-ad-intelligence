@@ -47,6 +47,7 @@ async def _ad_metrics(
         float(row[0]), int(row[1]), int(row[2]),
         int(row[3]), int(row[4]),
     )
+    cpr = round(s / conv, 2) if conv else 0.0
     return {
         "spend": round(s, 2), "impressions": imp,
         "reach": rch, "link_clicks": lc,
@@ -54,7 +55,8 @@ async def _ad_metrics(
         "cpm": round(s / imp * 1000, 2) if imp else 0.0,
         "cpc_link": round(s / lc, 2) if lc else 0.0,
         "ctr_link": round(lc / imp * 100, 2) if imp else 0.0,
-        "cpl": round(s / conv, 2) if conv else 0.0,
+        "cpl": cpr,
+        "cost_per_result": cpr,
     }
 
 
@@ -68,11 +70,29 @@ async def list_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """List ads with date-filtered metrics."""
+    # Subquery: total spend per ad in date range for sorting
+    spend_sq = (
+        select(
+            AdMetric.ad_id,
+            sa_func.coalesce(
+                sa_func.sum(AdMetric.spend), 0
+            ).label("total_spend"),
+        )
+        .where(AdMetric.account_id == account_id)
+    )
+    spend_sq = _date_filter(
+        spend_sq, AdMetric.timestamp, date_from, date_to
+    )
+    spend_sq = (
+        spend_sq.group_by(AdMetric.ad_id).subquery()
+    )
+
     q = (
         select(Ad)
         .options(selectinload(Ad.ad_set))
+        .outerjoin(spend_sq, Ad.id == spend_sq.c.ad_id)
         .where(Ad.account_id == account_id)
-        .order_by(Ad.name)
+        .order_by(spend_sq.c.total_spend.desc().nullslast())
         .offset(offset)
         .limit(limit)
     )
