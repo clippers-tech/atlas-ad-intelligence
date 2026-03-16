@@ -13,6 +13,7 @@ import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageLoader } from "@/components/common/LoadingSpinner";
 import { formatCurrency, formatNumber, formatPercent } from "@/lib/utils";
+import { ConversionTooltip } from "@/components/common/ConversionTooltip";
 import type { Ad } from "@/lib/types";
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
@@ -191,7 +192,13 @@ function AdCard({
       </div>
       <div className="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-[var(--border)]/50">
         <Stat label="Spend" value={formatCurrency(ad.spend ?? 0)} />
-        <Stat label="Results" value={formatNumber(ad.conversions ?? 0)} />
+        <div>
+          <p className="text-[10px] text-[var(--muted)] uppercase tracking-wide">Results</p>
+          <ConversionTooltip
+            result={ad.conversions ?? 0}
+            breakdown={ad.conversion_breakdown}
+          />
+        </div>
         <Stat label="Cost / Result" value={ad.cost_per_result ? formatCurrency(ad.cost_per_result) : "—"} />
         <Stat label="Impr." value={formatNumber(ad.impressions ?? 0)} />
         <Stat label="CTR" value={formatPercent(ad.ctr_link ?? 0)} />

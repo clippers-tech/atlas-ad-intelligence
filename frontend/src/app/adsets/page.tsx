@@ -14,6 +14,12 @@ import { StatusBadge, getStatusVariant } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
 import { PageLoader } from "@/components/common/LoadingSpinner";
 import { formatCurrency, formatCurrencyDecimal, formatNumber } from "@/lib/utils";
+import { ConversionTooltip } from "@/components/common/ConversionTooltip";
+
+interface ConversionItem {
+  name: string;
+  value: number;
+}
 
 interface AdSet {
   id: string;
@@ -28,6 +34,8 @@ interface AdSet {
   impressions: number;
   link_clicks: number;
   ctr_link: number;
+  optimization_event?: string;
+  conversion_breakdown?: ConversionItem[] | null;
 }
 
 type StatusFilter = "ALL" | "ACTIVE" | "PAUSED";
@@ -48,6 +56,21 @@ const COLUMNS: { label: string; key: string }[] = [
   { label: "Impressions", key: "impressions" },
   { label: "CTR (Link)", key: "ctr_link" },
 ];
+
+/** Short label for the optimization event name. */
+function _eventLabel(
+  event?: string
+): string | undefined {
+  if (!event) return undefined;
+  // offsite_conversion.custom.<id> → look up name
+  const NAMES: Record<string, string> = {
+    "3284105835088992": "Clippers Ads - Booke…",
+    "3800918580212743": "Lumina – Booked Call…",
+  };
+  const parts = event.split(".");
+  const cid = parts[parts.length - 1];
+  return NAMES[cid] || event.split(".").pop();
+}
 
 export default function AdSetsPage() {
   const { currentAccount, isLoading: accountLoading } = useAccountContext();
@@ -168,8 +191,12 @@ export default function AdSetsPage() {
                     <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
                       {formatCurrency(a.spend ?? 0)}
                     </td>
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
-                      {formatNumber(a.leads ?? 0)}
+                    <td className="px-4 py-3">
+                      <ConversionTooltip
+                        result={a.leads ?? 0}
+                        resultLabel={_eventLabel(a.optimization_event)}
+                        breakdown={a.conversion_breakdown}
+                      />
                     </td>
                     <td className="px-4 py-3 text-[13px] tabular-nums text-[var(--text)]">
                       {a.cost_per_result ? formatCurrencyDecimal(a.cost_per_result) : "—"}

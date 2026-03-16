@@ -1,4 +1,4 @@
-"""AdSet model with audience_type field."""
+"""AdSet model with audience_type + optimization_event."""
 
 import uuid
 from datetime import datetime
@@ -18,10 +18,12 @@ class AdSet(Base):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     account_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("accounts.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("accounts.id"),
+        nullable=False, index=True,
     )
     campaign_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("campaigns.id"), nullable=False, index=True
+        UUID(as_uuid=True), ForeignKey("campaigns.id"),
+        nullable=False, index=True,
     )
     meta_adset_id: Mapped[str] = mapped_column(
         String(100), nullable=False, unique=True
@@ -29,18 +31,33 @@ class AdSet(Base):
     name: Mapped[str] = mapped_column(String(500), nullable=False)
     audience_type: Mapped[str] = mapped_column(
         String(50), default="broad"
-        # lookalike, interest, broad, custom, retargeting
     )
-    targeting_json: Mapped[str | None] = mapped_column(Text, nullable=True)
-    daily_budget: Mapped[float | None] = mapped_column(Float, nullable=True)
-    status: Mapped[str] = mapped_column(String(50), default="ACTIVE")
+    targeting_json: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
+    daily_budget: Mapped[float | None] = mapped_column(
+        Float, nullable=True
+    )
+    status: Mapped[str] = mapped_column(
+        String(50), default="ACTIVE"
+    )
+    # Meta optimization event, e.g.
+    # "offsite_conversion.custom.3284105835088992"
+    optimization_event: Mapped[str | None] = mapped_column(
+        String(200), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+        DateTime(timezone=True), server_default=func.now(),
+        onupdate=func.now(),
     )
 
-    campaign = relationship("Campaign", back_populates="ad_sets")
-    ads = relationship("Ad", back_populates="ad_set", lazy="selectin")
+    campaign = relationship(
+        "Campaign", back_populates="ad_sets"
+    )
+    ads = relationship(
+        "Ad", back_populates="ad_set", lazy="selectin"
+    )

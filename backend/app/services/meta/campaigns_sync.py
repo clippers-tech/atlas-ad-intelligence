@@ -18,7 +18,10 @@ from app.services.meta.client import meta_client
 logger = logging.getLogger(__name__)
 
 _CAMPAIGN_FIELDS = "id,name,objective,status,daily_budget,lifetime_budget"
-_ADSET_FIELDS = "id,name,status,daily_budget,targeting,audience_type"
+_ADSET_FIELDS = (
+    "id,name,status,daily_budget,targeting,"
+    "audience_type,promoted_object"
+)
 _AD_FIELDS = "id,name,status,creative{id,thumbnail_url}"
 
 
@@ -61,7 +64,21 @@ async def _upsert_adset(
     adset.name = raw.get("name", "")
     adset.status = raw.get("status", "UNKNOWN")
     daily = raw.get("daily_budget")
-    adset.daily_budget = float(daily) / 100 if daily else None
+    adset.daily_budget = (
+        float(daily) / 100 if daily else None
+    )
+    # Extract optimization event from promoted_object
+    promo = raw.get("promoted_object") or {}
+    cc_id = promo.get("custom_conversion_id")
+    if cc_id:
+        adset.optimization_event = (
+            f"offsite_conversion.custom.{cc_id}"
+        )
+    elif promo.get("pixel_id"):
+        # Pixel-based: keep as lead fallback
+        adset.optimization_event = None
+    else:
+        adset.optimization_event = None
     return adset
 
 

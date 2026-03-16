@@ -1,6 +1,8 @@
 """Ads API — list ads with date-filtered aggregated metrics."""
 
+import json
 import logging
+from collections import defaultdict
 from datetime import date
 from typing import Optional
 
@@ -27,19 +29,42 @@ def _date_filter(q, col, date_from, date_to):
     return q
 
 
+def _merge_breakdowns(rows: list) -> list[dict]:
+    """Merge conversion_breakdown JSON across days."""
+    totals: dict[str, int] = defaultdict(int)
+    for (bd_json,) in rows:
+        if not bd_json:
+            continue
+        try:
+            items = json.loads(bd_json)
+            for item in items:
+                totals[item["name"]] += item["value"]
+        except (json.JSONDecodeError, KeyError):
+            pass
+    return [
+        {"name": n, "value": v}
+        for n, v in totals.items() if v > 0
+    ]
+
+
 async def _ad_metrics(
     db: AsyncSession,
     ad_id,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
 ) -> dict:
-    """Aggregate metrics for a single ad within date range."""
+    """Aggregate metrics for a single ad."""
     q = select(
-        sa_func.coalesce(sa_func.sum(AdMetric.spend), 0),
-        sa_func.coalesce(sa_func.sum(AdMetric.impressions), 0),
-        sa_func.coalesce(sa_func.sum(AdMetric.link_clicks), 0),
-        sa_func.coalesce(sa_func.sum(AdMetric.conversions), 0),
-        sa_func.coalesce(sa_func.sum(AdMetric.reach), 0),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.spend), 0),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.impressions), 0),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.link_clicks), 0),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.conversions), 0),
+        sa_func.coalesce(
+            sa_func.sum(AdMetric.reach), 0),
     ).where(AdMetric.ad_id == ad_id)
     q = _date_filter(q, AdMetric.timestamp, date_from, date_to)
     row = (await db.execute(q)).one()
@@ -47,16 +72,37 @@ async def _ad_metrics(
         float(row[0]), int(row[1]), int(row[2]),
         int(row[3]), int(row[4]),
     )
+
+    # Aggregate breakdown
+    bd_q = select(
+        AdMetric.conversion_breakdown,
+    ).where(
+        AdMetric.ad_id == ad_id,
+        AdMetric.conversion_breakdown.isnot(None),
+    )
+    bd_q = _date_filter(
+        bd_q, AdMetric.timestamp, date_from, date_to
+    )
+    bd_rows = (await db.execute(bd_q)).all()
+    breakdown = _merge_breakdowns(bd_rows)
+
     cpr = round(s / conv, 2) if conv else 0.0
     return {
         "spend": round(s, 2), "impressions": imp,
         "reach": rch, "link_clicks": lc,
         "conversions": conv, "leads": conv,
-        "cpm": round(s / imp * 1000, 2) if imp else 0.0,
+        "cpm": (
+            round(s / imp * 1000, 2) if imp else 0.0
+        ),
         "cpc_link": round(s / lc, 2) if lc else 0.0,
-        "ctr_link": round(lc / imp * 100, 2) if imp else 0.0,
+        "ctr_link": (
+            round(lc / imp * 100, 2) if imp else 0.0
+        ),
         "cpl": cpr,
         "cost_per_result": cpr,
+        "conversion_breakdown": (
+            breakdown if breakdown else None
+        ),
     }
 
 
@@ -70,7 +116,6 @@ async def list_ads(
     db: AsyncSession = Depends(get_db),
 ):
     """List ads with date-filtered metrics."""
-    # Subquery: total spend per ad in date range for sorting
     spend_sq = (
         select(
             AdMetric.ad_id,
@@ -81,7 +126,8 @@ async def list_ads(
         .where(AdMetric.account_id == account_id)
     )
     spend_sq = _date_filter(
-        spend_sq, AdMetric.timestamp, date_from, date_to
+        spend_sq, AdMetric.timestamp,
+        date_from, date_to,
     )
     spend_sq = (
         spend_sq.group_by(AdMetric.ad_id).subquery()
@@ -90,9 +136,13 @@ async def list_ads(
     q = (
         select(Ad)
         .options(selectinload(Ad.ad_set))
-        .outerjoin(spend_sq, Ad.id == spend_sq.c.ad_id)
+        .outerjoin(
+            spend_sq, Ad.id == spend_sq.c.ad_id
+        )
         .where(Ad.account_id == account_id)
-        .order_by(spend_sq.c.total_spend.desc().nullslast())
+        .order_by(
+            spend_sq.c.total_spend.desc().nullslast()
+        )
         .offset(offset)
         .limit(limit)
     )
@@ -126,6 +176,10 @@ async def list_ads(
             "adset_name": (
                 ad.ad_set.name if ad.ad_set else None
             ),
+            "optimization_event": (
+                ad.ad_set.optimization_event
+                if ad.ad_set else None
+            ),
             "created_at": ad.created_at.isoformat(),
             "updated_at": ad.updated_at.isoformat(),
         }
@@ -134,5 +188,9 @@ async def list_ads(
 
     return {
         "data": data,
-        "meta": {"total": total, "page": 1, "per_page": limit},
+        "meta": {
+            "total": total,
+            "page": 1,
+            "per_page": limit,
+        },
     }

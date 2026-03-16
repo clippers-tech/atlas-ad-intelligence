@@ -1,5 +1,6 @@
 """Parsers for Meta Insights API action & metric fields."""
 
+import json
 from typing import Any
 
 
@@ -65,50 +66,95 @@ def parse_website_ctr(row: dict) -> float:
     return 0.0
 
 
-# Custom conversion IDs that count as "results" per account.
-# Maps Meta ad-account ID → list of custom conversion IDs.
-_CUSTOM_CONV_IDS: dict[str, list[str]] = {
-    # Lumina Clippers
+# Human-readable names for custom conversion IDs.
+_CONV_NAMES: dict[str, str] = {
+    "3284105835088992": "Clippers Ads - Booked Call",
+    "3800918580212743": "Lumina – Booked Call Lead",
+}
+
+# All known custom conversion IDs per Meta ad-account.
+# Used to build the tooltip breakdown (all conversions).
+_ACCOUNT_CONV_IDS: dict[str, list[str]] = {
     "act_1103850885215983": [
-        "3284105835088992",   # Clippers Ads - Booked Call
-        "3800918580212743",   # Lumina – Booked Call Lead
+        "3284105835088992",
+        "3800918580212743",
     ],
 }
 
 
-def parse_results(
+def _conv_name(action_type: str) -> str:
+    """Get human name for an action_type string."""
+    if action_type == "lead":
+        return "Lead (Form)"
+    # offsite_conversion.custom.<id>
+    parts = action_type.rsplit(".", 1)
+    cid = parts[-1] if len(parts) > 1 else ""
+    return _CONV_NAMES.get(cid, action_type)
+
+
+def parse_results_and_breakdown(
     actions: list[dict] | None,
     meta_account_id: str,
-) -> int:
-    """Count results: custom conversions if configured,
-    else fall back to standard 'lead' action."""
+    optimization_event: str | None,
+) -> tuple[int, str | None]:
+    """Count result + build conversion breakdown JSON.
+
+    Returns (result_count, breakdown_json).
+    result_count = only the optimization_event count.
+    breakdown = ALL custom conversions found (for tooltip).
+    """
     if not actions:
-        return 0
-    cc_ids = _CUSTOM_CONV_IDS.get(meta_account_id, [])
+        return 0, None
+
+    cc_ids = _ACCOUNT_CONV_IDS.get(meta_account_id, [])
+    breakdown: list[dict[str, Any]] = []
+    result = 0
+
     if cc_ids:
-        total = 0
-        for a in actions:
-            at = a.get("action_type", "")
-            for cid in cc_ids:
-                if at == f"offsite_conversion.custom.{cid}":
-                    total += int(a.get("value", 0))
-        if total > 0:
-            return total
-    # Fallback: standard lead action
-    return parse_actions(actions, "lead")
+        # Build breakdown for all known custom conversions
+        for cid in cc_ids:
+            at = f"offsite_conversion.custom.{cid}"
+            count = parse_actions(actions, at)
+            if count > 0:
+                breakdown.append({
+                    "name": _conv_name(at),
+                    "value": count,
+                })
+                if optimization_event and at == optimization_event:
+                    result = count
+
+        # If no optimization_event set, sum all
+        if not optimization_event and breakdown:
+            result = sum(b["value"] for b in breakdown)
+    # Also check standard lead
+    lead_count = parse_actions(actions, "lead")
+    if lead_count > 0 and not cc_ids:
+        breakdown.append({
+            "name": "Lead (Form)", "value": lead_count,
+        })
+    # If no optimization_event matched, fallback
+    if result == 0:
+        if optimization_event:
+            # Count the specific event directly
+            result = parse_actions(
+                actions, optimization_event,
+            )
+        elif not cc_ids:
+            result = lead_count
+
+    bd_json = json.dumps(breakdown) if breakdown else None
+    return result, bd_json
 
 
 def parse_result_cost(
-    cost_actions: list[dict] | None,
-    meta_account_id: str,
-    spend: float,
-    results: int,
+    spend: float, results: int,
+    cost_actions: list[dict] | None = None,
 ) -> float:
-    """Cost per result: spend/results for custom conversions,
-    else fall back to cost_per_action 'lead'."""
+    """Cost per result: spend / results."""
     if results > 0:
         return round(spend / results, 2)
-    cc_ids = _CUSTOM_CONV_IDS.get(meta_account_id, [])
-    if not cc_ids and cost_actions:
-        return parse_cost_per_action(cost_actions, "lead")
+    if cost_actions:
+        return parse_cost_per_action(
+            cost_actions, "lead"
+        )
     return 0.0

@@ -3,7 +3,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -58,7 +58,13 @@ class AdMetric(Base):
     conversions: Mapped[int] = mapped_column(Integer, default=0)
     cpl: Mapped[float] = mapped_column(Float, default=0.0)
     cpa: Mapped[float] = mapped_column(Float, default=0.0)
-    cost_per_result: Mapped[float] = mapped_column(Float, default=0.0)
+    cost_per_result: Mapped[float] = mapped_column(
+        Float, default=0.0
+    )
+    # JSON: [{"name": "...", "value": N}, ...]
+    conversion_breakdown: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
 
     # Unique reach/clicks
     unique_clicks: Mapped[int] = mapped_column(Integer, default=0)

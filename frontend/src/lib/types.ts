@@ -48,6 +48,11 @@ export interface Campaign {
   roas?: number;
 }
 
+export interface ConversionBreakdownItem {
+  name: string;
+  value: number;
+}
+
 export interface Ad {
   id: string;
   account_id: string;
@@ -61,6 +66,7 @@ export interface Ad {
   status: string;
   first_active_date: string | null;
   adset_name?: string;
+  optimization_event?: string;
   spend?: number;
   impressions?: number;
   reach?: number;
@@ -72,6 +78,7 @@ export interface Ad {
   ctr_link?: number;
   cpl?: number;
   cost_per_result?: number;
+  conversion_breakdown?: ConversionBreakdownItem[] | null;
 }
 
 export interface AdMetric {
