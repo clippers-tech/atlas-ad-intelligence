@@ -1,4 +1,9 @@
-"""Rules engine — evaluates automation rules against ad metrics."""
+"""Rules engine — evaluates automation rules against ad metrics.
+
+Aggregates daily metric rows over a 7-day window, then evaluates
+rule conditions against the per-ad totals.  Only ACTIVE ads are
+checked (no point killing already-paused ads).
+"""
 
 import json
 import logging
@@ -12,9 +17,18 @@ from app.models.action_log import ActionLog
 from app.models.ad import Ad
 from app.models.ad_metric import AdMetric
 from app.models.rule import Rule
+from app.services.rules.aggregator import (
+    EVAL_WINDOW_DAYS,
+    AggregatedMetrics,
+    aggregate_rows,
+)
 from app.services.rules.dispatch import dispatch_action
 
 logger = logging.getLogger(__name__)
+
+# -------------------------------------------------------------------
+# Condition evaluation (operates on AggregatedMetrics)
+# -------------------------------------------------------------------
 
 _OPS: dict = {
     ">": lambda a, b: a > b,
@@ -30,7 +44,6 @@ _OPS: dict = {
 def _eval_condition(
     value: float, operator: str, threshold: float
 ) -> bool:
-    """Evaluate a single numeric condition."""
     fn = _OPS.get(operator)
     if fn is None:
         logger.warning("rules: unknown operator %r", operator)
@@ -38,21 +51,10 @@ def _eval_condition(
     return fn(value, threshold)
 
 
-def _metric_from_row(
-    row: AdMetric, metric_name: str
-) -> float | None:
-    """Extract a named metric from an AdMetric row."""
-    return getattr(row, metric_name, None)
-
-
 def _eval_full_condition(
-    metric_row: AdMetric, condition: dict
+    agg: AggregatedMetrics, condition: dict
 ) -> bool:
-    """Evaluate a condition tree including AND/OR branches.
-
-    Shape: {"metric": "spend", "operator": ">", "value": 75,
-            "and": [{"metric": "conversions", "operator": "==", "value": 0}]}
-    """
+    """Evaluate a condition tree against aggregated metrics."""
     metric_name = condition.get("metric", "")
     operator = condition.get("operator", "")
     threshold = condition.get("value")
@@ -60,24 +62,21 @@ def _eval_full_condition(
     if not metric_name or not operator or threshold is None:
         return False
 
-    value = _metric_from_row(metric_row, metric_name)
+    value = agg.get(metric_name)
     if value is None:
         return False
 
     if not _eval_condition(float(value), operator, float(threshold)):
         return False
 
-    # AND — ALL must pass
     for sub in condition.get("and", []):
-        if not _eval_full_condition(metric_row, sub):
+        if not _eval_full_condition(agg, sub):
             return False
 
-    # OR — at least ONE must pass (if present)
     or_conditions = condition.get("or", [])
     if or_conditions:
         if not any(
-            _eval_full_condition(metric_row, s)
-            for s in or_conditions
+            _eval_full_condition(agg, s) for s in or_conditions
         ):
             return False
 
@@ -85,21 +84,21 @@ def _eval_full_condition(
 
 
 def _build_snapshot(
-    metric_row: AdMetric, condition: dict, ad_id
+    agg: AggregatedMetrics, condition: dict
 ) -> dict:
     """Collect metric values referenced in a condition tree."""
-    snap: dict = {"ad_id": str(ad_id)}
+    snap: dict = {"ad_id": str(agg.ad_id)}
     name = condition.get("metric", "")
     if name:
-        snap[name] = _metric_from_row(metric_row, name)
+        snap[name] = agg.get(name)
     for sub in condition.get("and", []):
         n = sub.get("metric", "")
         if n:
-            snap[n] = _metric_from_row(metric_row, n)
+            snap[n] = agg.get(n)
     for sub in condition.get("or", []):
         n = sub.get("metric", "")
         if n:
-            snap[n] = _metric_from_row(metric_row, n)
+            snap[n] = agg.get(n)
     return snap
 
 
@@ -128,8 +127,10 @@ async def check_cooldown(
 async def evaluate_rules_for_account(
     db: AsyncSession, account_id: uuid.UUID
 ) -> list[dict]:
-    """Evaluate all enabled rules and execute actions."""
-    horizon = datetime.now(timezone.utc) - timedelta(hours=1)
+    """Evaluate all enabled rules against aggregated ad metrics."""
+    horizon = datetime.now(timezone.utc) - timedelta(
+        days=EVAL_WINDOW_DAYS
+    )
 
     rules_result = await db.execute(
         select(Rule).where(
@@ -143,6 +144,7 @@ async def evaluate_rules_for_account(
         logger.debug("rules: no active rules for %s", account_id)
         return []
 
+    # Pull all daily metric rows within the window
     metrics_result = await db.execute(
         select(AdMetric)
         .where(
@@ -153,10 +155,32 @@ async def evaluate_rules_for_account(
     )
     all_metrics = list(metrics_result.scalars().all())
 
-    latest_by_ad: dict[uuid.UUID, AdMetric] = {}
+    # Group by ad_id and aggregate
+    by_ad: dict[uuid.UUID, list[AdMetric]] = {}
     for m in all_metrics:
-        if m.ad_id not in latest_by_ad:
-            latest_by_ad[m.ad_id] = m
+        by_ad.setdefault(m.ad_id, []).append(m)
+
+    aggregated: dict[uuid.UUID, AggregatedMetrics] = {}
+    for ad_id, rows in by_ad.items():
+        aggregated[ad_id] = aggregate_rows(rows)
+
+    logger.info(
+        "rules: account %s — %d ads in %d-day window",
+        account_id, len(aggregated), EVAL_WINDOW_DAYS,
+    )
+
+    # Only evaluate ACTIVE ads
+    active_ad_ids: set[uuid.UUID] = set()
+    if aggregated:
+        ads_result = await db.execute(
+            select(Ad.id, Ad.status).where(
+                Ad.account_id == account_id,
+                Ad.id.in_(list(aggregated.keys())),
+            )
+        )
+        for row in ads_result:
+            if row[1] == "ACTIVE":
+                active_ad_ids.add(row[0])
 
     actions_taken: list[dict] = []
 
@@ -165,7 +189,9 @@ async def evaluate_rules_for_account(
             condition = json.loads(rule.condition_json)
             action_cfg = json.loads(rule.action_json)
         except (json.JSONDecodeError, TypeError) as exc:
-            logger.error("rules: bad JSON in rule %s — %s", rule.id, exc)
+            logger.error(
+                "rules: bad JSON in rule %s — %s", rule.id, exc
+            )
             continue
 
         if await check_cooldown(db, rule.id, rule.cooldown_minutes):
@@ -177,21 +203,26 @@ async def evaluate_rules_for_account(
         ):
             continue
 
-        for ad_id, metric_row in latest_by_ad.items():
-            if not _eval_full_condition(metric_row, condition):
+        for ad_id, agg in aggregated.items():
+            if ad_id not in active_ad_ids:
+                continue
+
+            if not _eval_full_condition(agg, condition):
                 continue
 
             ad = await db.get(Ad, ad_id)
             if ad is None or ad.account_id != account_id:
                 continue
 
-            snapshot = _build_snapshot(metric_row, condition, ad_id)
+            snapshot = _build_snapshot(agg, condition)
             result = await dispatch_action(
                 db, rule, ad, action_cfg, snapshot
             )
             if result:
-                ad_spend = getattr(metric_row, "spend", 0.0) or 0.0
-                rule.budget_spent = (rule.budget_spent or 0.0) + ad_spend
+                ad_spend = agg.get("spend") or 0.0
+                rule.budget_spent = (
+                    (rule.budget_spent or 0.0) + ad_spend
+                )
                 await db.flush()
                 actions_taken.append(result)
                 break  # cooldown: one fire per rule per eval
