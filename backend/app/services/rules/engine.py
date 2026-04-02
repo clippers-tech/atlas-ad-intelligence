@@ -26,10 +26,6 @@ from app.services.rules.dispatch import dispatch_action
 
 logger = logging.getLogger(__name__)
 
-# -------------------------------------------------------------------
-# Condition evaluation (operates on AggregatedMetrics)
-# -------------------------------------------------------------------
-
 _OPS: dict = {
     ">": lambda a, b: a > b,
     "<": lambda a, b: a < b,
@@ -83,20 +79,11 @@ def _eval_full_condition(
     return True
 
 
-def _build_snapshot(
-    agg: AggregatedMetrics, condition: dict
-) -> dict:
+def _build_snapshot(agg: AggregatedMetrics, cond: dict) -> dict:
     """Collect metric values referenced in a condition tree."""
     snap: dict = {"ad_id": str(agg.ad_id)}
-    name = condition.get("metric", "")
-    if name:
-        snap[name] = agg.get(name)
-    for sub in condition.get("and", []):
-        n = sub.get("metric", "")
-        if n:
-            snap[n] = agg.get(n)
-    for sub in condition.get("or", []):
-        n = sub.get("metric", "")
+    for src in [cond] + cond.get("and", []) + cond.get("or", []):
+        n = src.get("metric", "")
         if n:
             snap[n] = agg.get(n)
     return snap
@@ -120,17 +107,25 @@ async def check_cooldown(
     return result.scalar_one_or_none() is not None
 
 
-# -------------------------------------------------------------------
-# Main entry point
-# -------------------------------------------------------------------
-
 async def evaluate_rules_for_account(
-    db: AsyncSession, account_id: uuid.UUID
+    db: AsyncSession,
+    account_id: uuid.UUID,
+    dry_run: bool = False,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
 ) -> list[dict]:
-    """Evaluate all enabled rules against aggregated ad metrics."""
-    horizon = datetime.now(timezone.utc) - timedelta(
-        days=EVAL_WINDOW_DAYS
-    )
+    """Evaluate all enabled rules against aggregated ad metrics.
+
+    dry_run=True skips dispatch (no Meta API calls), returns what
+    *would* happen.  window_start/window_end override the default
+    7-day lookback for backtesting.
+    """
+    if window_start and window_end:
+        horizon = window_start
+    else:
+        horizon = datetime.now(timezone.utc) - timedelta(
+            days=EVAL_WINDOW_DAYS
+        )
 
     rules_result = await db.execute(
         select(Rule).where(
@@ -145,13 +140,14 @@ async def evaluate_rules_for_account(
         return []
 
     # Pull all daily metric rows within the window
+    metric_q = select(AdMetric).where(
+        AdMetric.account_id == account_id,
+        AdMetric.timestamp >= horizon,
+    )
+    if window_end:
+        metric_q = metric_q.where(AdMetric.timestamp <= window_end)
     metrics_result = await db.execute(
-        select(AdMetric)
-        .where(
-            AdMetric.account_id == account_id,
-            AdMetric.timestamp >= horizon,
-        )
-        .order_by(AdMetric.ad_id, AdMetric.timestamp.desc())
+        metric_q.order_by(AdMetric.ad_id, AdMetric.timestamp.desc())
     )
     all_metrics = list(metrics_result.scalars().all())
 
@@ -169,7 +165,8 @@ async def evaluate_rules_for_account(
         account_id, len(aggregated), EVAL_WINDOW_DAYS,
     )
 
-    # Only evaluate ACTIVE ads
+    # Fetch ad statuses — dry_run/backtest check ALL ads
+    ad_statuses: dict[uuid.UUID, str] = {}
     active_ad_ids: set[uuid.UUID] = set()
     if aggregated:
         ads_result = await db.execute(
@@ -179,7 +176,8 @@ async def evaluate_rules_for_account(
             )
         )
         for row in ads_result:
-            if row[1] == "ACTIVE":
+            ad_statuses[row[0]] = row[1]
+            if dry_run or row[1] == "ACTIVE":
                 active_ad_ids.add(row[0])
 
     actions_taken: list[dict] = []
@@ -215,6 +213,20 @@ async def evaluate_rules_for_account(
                 continue
 
             snapshot = _build_snapshot(agg, condition)
+
+            if dry_run:
+                actions_taken.append({
+                    "rule_name": rule.name,
+                    "rule_type": rule.type,
+                    "ad_name": ad.name,
+                    "ad_status": ad_statuses.get(ad_id, "?"),
+                    "meta_ad_id": ad.meta_ad_id,
+                    "action": action_cfg,
+                    "metric_snapshot": snapshot,
+                    "dry_run": True,
+                })
+                continue  # check all ads, don't break
+
             result = await dispatch_action(
                 db, rule, ad, action_cfg, snapshot
             )

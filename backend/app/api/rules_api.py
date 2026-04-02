@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
@@ -119,44 +120,97 @@ async def update_rule(
 @router.post("/evaluate")
 async def evaluate_rules(
     account_id: UUID | None = Query(None),
+    dry_run: bool = Query(False),
     db: AsyncSession = Depends(get_db),
 ):
     """Run rule evaluation for one or all accounts.
 
-    If account_id is provided, evaluates only that account.
-    Otherwise evaluates all active accounts.
+    ?dry_run=true → no Meta API calls, returns what *would* happen.
     """
-    if account_id:
-        acct = await db.get(Account, account_id)
-        if not acct:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Account not found")
-        accounts = [acct]
-    else:
-        result = await db.execute(
-            select(Account).where(Account.is_active.is_(True))
-        )
-        accounts = list(result.scalars().all())
-
-    all_actions: list[dict] = []
-    errors: list[dict] = []
-
-    for acct in accounts:
-        try:
-            actions = await evaluate_rules_for_account(db, acct.id)
-            all_actions.extend(actions)
-        except Exception as exc:
-            logger.error("evaluate: failed for %s — %s", acct.name, exc)
-            errors.append({"account": acct.name, "error": str(exc)})
-
-    await db.commit()
+    accounts = await _resolve_accounts(db, account_id)
+    all_actions, errors = await _run_eval(
+        db, accounts, dry_run=dry_run,
+    )
+    if not dry_run:
+        await db.commit()
     return {
         "data": {
             "actions_taken": all_actions,
             "total_actions": len(all_actions),
             "accounts_evaluated": len(accounts),
+            "dry_run": dry_run,
             "errors": errors,
         }
     }
+
+
+@router.post("/backtest")
+async def backtest_rules(
+    account_id: UUID | None = Query(None),
+    start_date: str = Query(..., description="YYYY-MM-DD"),
+    end_date: str = Query(..., description="YYYY-MM-DD"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Backtest rules against a historical date range (always dry-run)."""
+    try:
+        ws = datetime.strptime(start_date, "%Y-%m-%d").replace(
+            tzinfo=timezone.utc
+        )
+        we = datetime.strptime(end_date, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59, tzinfo=timezone.utc
+        )
+    except ValueError:
+        raise HTTPException(400, "Dates must be YYYY-MM-DD")
+
+    accounts = await _resolve_accounts(db, account_id)
+    all_actions, errors = await _run_eval(
+        db, accounts, dry_run=True,
+        window_start=ws, window_end=we,
+    )
+    return {
+        "data": {
+            "actions_would_take": all_actions,
+            "total": len(all_actions),
+            "accounts_evaluated": len(accounts),
+            "window": {"start": start_date, "end": end_date},
+            "errors": errors,
+        }
+    }
+
+
+async def _resolve_accounts(
+    db: AsyncSession, account_id: UUID | None = None,
+) -> list:
+    if account_id:
+        acct = await db.get(Account, account_id)
+        if not acct:
+            raise HTTPException(404, "Account not found")
+        return [acct]
+    result = await db.execute(
+        select(Account).where(Account.is_active.is_(True))
+    )
+    return list(result.scalars().all())
+
+
+async def _run_eval(
+    db: AsyncSession, accounts: list, *,
+    dry_run: bool = False,
+    window_start: datetime | None = None,
+    window_end: datetime | None = None,
+) -> tuple[list[dict], list[dict]]:
+    all_actions: list[dict] = []
+    errors: list[dict] = []
+    for acct in accounts:
+        try:
+            actions = await evaluate_rules_for_account(
+                db, acct.id, dry_run=dry_run,
+                window_start=window_start, window_end=window_end,
+            )
+            all_actions.extend(actions)
+        except Exception as exc:
+            logger.error("eval: %s — %s", acct.name, exc)
+            errors.append({"account": acct.name, "error": str(exc)})
+    return all_actions, errors
 
 
 @router.delete("/{rule_id}", status_code=status.HTTP_200_OK)
